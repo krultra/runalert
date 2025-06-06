@@ -1,0 +1,12 @@
+/* Navigation icon overrides */
+.navIcon {
+  color: rgb(31, 41, 55) !important; /* dark gray in light mode */
+}
+
+:global(.dark) .navIcon {
+  color: rgb(229, 231, 235) !important; /* light gray in dark mode */
+}
+
+.sunIcon {
+  color: rgb(252, 211, 77) !important; /* yellow for sun icon */
+}

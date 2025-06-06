@@ -1,0 +1,49 @@
+/* Custom accordion styling overrides */
+.customAccordionTrigger {
+  background-color: transparent !important;
+  border-radius: 0.5rem 0.5rem 0 0 !important;
+  transition: background-color 0.2s ease !important;
+  min-height: 2rem !important; /* Smaller height */
+  line-height: 1 !important; /* Tighter line height */
+}
+
+.customAccordionTrigger:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important; /* Very subtle hover effect */
+}
+
+.customAccordionTrigger[data-state="open"] {
+  background-color: transparent !important;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  .customAccordionTrigger {
+    background-color: transparent !important;
+  }
+  
+  .customAccordionTrigger:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important; /* Very subtle hover effect */
+  }
+  
+  .customAccordionTrigger[data-state="open"] {
+    background-color: transparent !important;
+  }
+}
+
+/* Chevron icon styling */
+.customAccordionTrigger > svg {
+  color: hsl(var(--foreground) / 0.6) !important; /* Using foreground color with opacity */
+  transition: transform 0.2s ease !important;
+}
+
+/* Hide chevron icon */
+.hideChevron > svg {
+  display: none !important;
+}
+
+/* Reduce spacing between accordion items */
+.accordionItem {
+  margin-bottom: 0.125rem !important; /* Even smaller spacing */
+}
+
+/* No specific overrides needed for accordion content */

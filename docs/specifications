@@ -1,0 +1,95 @@
+# RunAlert og RunAlertAdmin – Funksjonsspesifikasjon og Arkitektur #
+
+## Grov funksjonsbeskrivelse ##
+Består av to web-apper:
+- RunAlert: Klient for bruk av løpere og funksjonærer og enkelte administrative oppgaver
+- RunAlertAdmin: Klient for administrasjon av løp, løyper, løpere og funksjonærer, konfigurering, logging, sending av meldinger og varsler, overvåking i sanntid etc.
+
+### Varslingsfunksjoner ###
+- Push-varsler i sanntid til:
+  - Alle
+  - Kun løpere
+  - Kun funksjonærer
+  - Grupper (f.eks. etter løype eller posisjon)
+- Forhåndslagrede meldinger for raske varslinger (f.eks. “Vær oppmerksom på hindring ved CP4”)
+- Geo-fence-baserte varsler (send varsel når løper passerer område)
+
+### Løpsinformasjon ###
+- Løypekart med markerte sjekkpunkter og stasjoner
+- Status på sjekkpunkter (åpne/stengt, forsinkelser)
+- Informasjon om løypelengde, høydeprofil og vanskelighetsgrad
+
+### Live-status og posisjon ###
+- Sanntidsvisning av hvor løpere er (hvis de har GPS aktivert)
+- Kartvisning for funksjonærer med:
+  - Løpere i nærheten
+  - Sjekkpunkter
+  - Medisinsk støtte, drikkestasjoner
+
+### Hendelser og krisehåndtering ###
+- Funksjon for løpere til å melde om skade/nødsituasjon (med GPS-posisjon)
+- Intern varsling til medisinsk team
+- Registrering og logging av hendelser
+
+### Rollebasert tilgang ###
+- Admin (full tilgang)
+- Løper (motta varsler, sende nødmeldinger)
+- Funksjonær (motta tilpassede varsler, rapportere status)
+- Speaker / publikumsvisning (vis status og meldinger på storskjerm/nett)
+
+### Informasjonsdeling ###
+- Live meldingsfeed (som Twitter/X-style)
+- Integrasjon med SMS for deltakere uten app
+- Mulighet for å legge ut værvarsler, endringer i løype, tidsskjema osv.
+
+### Logg og etterarbeid ###
+- Automatisk logging av alle varsler
+- Eksport av hendelseslogg
+- Brukerstatistikk og analyse
+
+## Teknisk arkitektur (Firebase-basert PWA) ##
+
+### 0. Utvidelse av RunnersHub ###
+- Multi-app setup: RunAlert swttes opp som en separat web-app i samme prosjekt som RunnersHub har sin web-app
+- De deler samme firestore-db, auth, hosting etc.
+- Hver app har sin egen firebase config
+
+### 1. Frontend – PWA (React) ###
+- React Next.js + TailwindCSS + shadcn
+- Bygg som en PWA med offline-støtte og installasjonsmulighet
+- Rollebasert UI
+
+### 2. Backend – Firebase ###
+- Firebase Auth: Autentisering (e-post lenke, Google)
+- Firestore: Meldinger og dataflyt i sanntid
+- FCM: Push-varsler
+- Firebase Hosting: Hosting av PWA
+- Cloud Functions: Backend-logikk
+- Firebase Analytics: Logging og statistikk
+
+### 3. Eksterne tjenester (valgfritt) ###
+- GeoFire: GPS og geografisk spørring i Firestore
+- Twilio: SMS fallback
+
+### 4. Kommunikasjonskanaler ###
+- FCM: Viktige varsler
+- Firestore/WebSocket: Live data
+- SMS: Backup for app-løse brukere
+
+### 5. Rollestyring og autorisasjon ###
+- RunnersHub bruker fortsatt users.isAdmin i Firestore-dokumenter for rettighetsstyring
+- RunAlert introduserer custom claims i Firebase Auth for rollebasert tilgang, f.eks. role = "admin" | "runner" | "marshal" | "speaker"
+- Begge modellene kan eksistere samtidig i samme Firebase-prosjekt uten konflikt
+- Custom claims gir sikrere autorisasjon da de er signert av Firebase og ikke kan endres av klienten
+- En Cloud Function kan håndtere oppdatering av claims ved brukerendringer
+
+### 6. Datastruktur ###
+- users
+- events
+- eventEditions
+- messages
+- alerts
+- locations
+- races
+-  
+
