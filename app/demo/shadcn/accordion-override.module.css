@@ -3,8 +3,22 @@
   background-color: transparent !important;
   border-radius: 0.5rem 0.5rem 0 0 !important;
   transition: background-color 0.2s ease !important;
-  min-height: 2rem !important; /* Smaller height */
-  line-height: 1 !important; /* Tighter line height */
+  min-height: 2rem !important;
+  line-height: 1.2 !important;
+  padding: 0.5rem 0.75rem !important;
+  margin-bottom: 0 !important;
+}
+
+/* Icon container styling */
+.customAccordionTrigger .iconContainer {
+  margin-right: 0.5rem !important;
+  display: flex;
+  align-items: center;
+}
+
+/* Title text styling */
+.customAccordionTrigger .titleText {
+  margin-right: 0.25rem;
 }
 
 .customAccordionTrigger:hover {
@@ -43,7 +57,43 @@
 
 /* Reduce spacing between accordion items */
 .accordionItem {
-  margin-bottom: 0.125rem !important; /* Even smaller spacing */
+  margin-bottom: 0 !important;
+  margin-top: 0 !important;
 }
 
-/* No specific overrides needed for accordion content */
+/* Accordion spacing */
+.accordionSpacing > * + * {
+  margin-top: 0rem !important;
+  margin-bottom: 0rem !important;
+}
+
+/* Custom warning color */
+.warningLight {
+  color: hsl(38 92% 50%);
+}
+
+.warningDark {
+  color: hsl(48 96% 50%);
+}
+
+/* Accordion content spacing override - more compatible with CSS modules */
+.compactContent {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.compactContent > div {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Override via custom classes instead */
+.noSpacing {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.proseCustom {
+  padding: 0.25rem 0.75rem !important;
+  margin: 0 !important;
+}

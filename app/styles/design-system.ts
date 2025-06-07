@@ -91,29 +91,40 @@ export const shadows = {
 
 // Message priority levels
 export const messagePriority = {
-  low: {
+  info: {
     bg: colors.gray100,
     text: colors.gray800,
-    border: colors.gray300,
-    icon: 'ℹ️',
+    border: colors.info,
+    icon: 'info',
+    iconColor: colors.info,
   },
-  normal: {
+  announcement: {
     bg: colors.white,
     text: colors.gray900,
-    border: colors.gray200,
-    icon: '📢',
+    border: colors.primary,
+    icon: 'bell',
+    iconColor: colors.primary,
   },
-  high: {
+  warning: {
     bg: '#FEF3C7', // Amber-50
     text: colors.gray900,
-    border: '#FCD34D', // Amber-300
-    icon: '⚠️',
+    border: colors.warning,
+    icon: 'alertTriangle',
+    iconColor: colors.warning,
   },
   critical: {
     bg: '#FEE2E2', // Red-50
     text: colors.gray900,
     border: colors.error,
-    icon: '🚨',
+    icon: 'alertOctagon',
+    iconColor: colors.error,
+  },
+  normal: {
+    bg: colors.white,
+    text: colors.gray800,
+    border: colors.gray500,
+    icon: 'info',
+    iconColor: colors.gray500,
   },
 };
 

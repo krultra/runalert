@@ -9,24 +9,30 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
 // Import icons
-import { AlertOctagon, AlertTriangle, Bell, Eye, EyeOff, Info, CheckCircle2 } from "lucide-react";
+import { AlertOctagon, AlertTriangle, Bell, Eye, EyeOff, Info, CheckCircle2, ChevronDown } from "lucide-react";
 
 // Import auth context and firebase services
 import { useAuth } from "@/app/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { messageService, Message } from "@/lib/firebase/messages";
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, query, setDoc, where, Timestamp, updateDoc, arrayUnion } from 'firebase/firestore';
 
 // Import styles
 import styles from "./accordion-override.module.css";
 
+// Import design system
+import { colors, messagePriority } from "@/app/styles/design-system";
 
 // Use the Message type from our Firebase service
 interface LocalMessage extends Message {
   dismissed: boolean;
 }
 
-type MessagePriority = "info" | "normal" | "warning" | "critical";
+// Define message priority types for clarity
+type MessagePriority = "info" | "warning" | "critical" | "announcement" | "normal";
+
+// Ensure types are compatible
+type LocalMessagePriority = Message["priority"];
 
 interface RaceStatusMessage {
   status: MessagePriority;
@@ -34,19 +40,29 @@ interface RaceStatusMessage {
   timestamp: Date;
 }
 
-// Define message priority and icon mapping
+// Helper to get border color from messagePriority
+const getPriorityBorderColor = (priority: MessagePriority): string => {
+  // Default to normal if priority doesn't match
+  return messagePriority[priority]?.border || messagePriority.normal.border;
+};
+
+// Define message priority and icon mapping using design system
 const getPriorityIcon = (priority: MessagePriority) => {
-  switch (priority) {
-    case "info":
-      return <Info className="h-5 w-5 text-muted-foreground" />;
-    case "normal":
-      return <Bell className="h-5 w-5 text-primary" />;
-    case "warning":
-      return <AlertTriangle className="h-5 w-5 text-warning" />;
-    case "critical":
-      return <AlertOctagon className="h-5 w-5 text-destructive" />;
+  // Get icon configuration from the design system
+  const iconConfig = messagePriority[priority] || messagePriority.normal;
+  
+  // Return appropriate icon component based on icon name
+  switch (iconConfig.icon) {
+    case 'info':
+      return <Info className="h-5 w-5" style={{ color: iconConfig.iconColor }} />;
+    case 'bell':
+      return <Bell className="h-5 w-5" style={{ color: iconConfig.iconColor }} />;
+    case 'alertTriangle':
+      return <AlertTriangle className="h-5 w-5" style={{ color: iconConfig.iconColor }} />;
+    case 'alertOctagon':
+      return <AlertOctagon className="h-5 w-5" style={{ color: iconConfig.iconColor }} />;
     default:
-      return <Info className="h-5 w-5 text-muted-foreground" />;
+      return <Info className="h-5 w-5" style={{ color: iconConfig.iconColor }} />;
   }
 };
 
@@ -119,8 +135,6 @@ const initialDemoMessages: DemoMessage[] = [
   },
 ];
 
-
-
 // Helper to format time (e.g., 14:30)
 const formatTime = (date: Date) => {
   return new Intl.DateTimeFormat('default', {
@@ -131,7 +145,10 @@ const formatTime = (date: Date) => {
 };
 
 export default function ShadcnDemoPage() {
+  // State to track which message is currently open
   const [openItem, setOpenItem] = useState<string>("");
+  // State for tracking opened messages
+  const [readMessages, setReadMessages] = useState<Set<string>>(new Set());
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [showDismissed, setShowDismissed] = useState<boolean>(false);
   const { user } = useAuth();
@@ -142,6 +159,22 @@ export default function ShadcnDemoPage() {
     message: "All systems operational. The race is proceeding as planned.",
     timestamp: new Date()
   });
+
+  useEffect(() => {
+    // Fetch messages from demo database...
+    // Convert DemoMessage to LocalMessage type
+    setMessages(initialDemoMessages.map(msg => ({
+      ...msg,
+      createdAt: new Date(msg.timestamp),
+      dismissed: msg.dismissed || false,
+      priority: msg.priority as LocalMessagePriority // Type assertion to make compatible
+    })));
+    
+    // Load previously read messages for this user
+    if (user) {
+      loadReadMessageStatus(user.uid);
+    }
+  }, [user]);
 
   useEffect(() => {
     const unsubscribe = messageService.subscribeToMessages((newMessages: Message[]) => {
@@ -162,6 +195,43 @@ export default function ShadcnDemoPage() {
     
     return () => unsubscribe();
   }, [user]);
+
+  // Load read message status from Firestore
+  const loadReadMessageStatus = async (userId: string) => {
+    try {
+      const readStatusRef = collection(db, 'ra_userMessageStatus');
+      const q = query(readStatusRef, where('userId', '==', userId));
+      const querySnapshot = await getDocs(q);
+      
+      const readMsgs = new Set<string>();
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.messageId) {
+          readMsgs.add(data.messageId);
+        }
+      });
+      
+      setReadMessages(readMsgs);
+    } catch (error) {
+      console.error('Error loading read message status:', error);
+    }
+  };
+  
+  // Update message read status in Firestore
+  const updateMessageReadStatus = async (messageId: string, userId: string) => {
+    try {
+      const statusId = `${userId}_${messageId}`;
+      await setDoc(doc(db, 'ra_userMessageStatus', statusId), {
+        userId,
+        messageId,
+        opened: true,
+        openedAt: Timestamp.now(),
+      });
+      console.log('Message read status updated');
+    } catch (error) {
+      console.error('Error updating message read status:', error);
+    }
+  };
 
   // Handle message dismissal and undismissal
   // Helper function for alert styling based on priority
@@ -208,10 +278,8 @@ export default function ShadcnDemoPage() {
           msg.id === id ? {...msg, dismissed: true} as LocalMessage : msg
         ));
 
-        // If the dismissed item was open, close it
-        if (openItem === id) {
-          setOpenItem("");
-        }
+        // Message will auto-close if dismissed since we're using key prop
+        // to force remount of the accordion when messages change
       }
     } catch (error) {
       console.error("Error updating message status:", error);
@@ -255,68 +323,66 @@ export default function ShadcnDemoPage() {
         </CardContent>
       </Card>
 
-      {/* Show/Hide Dismissed Button */}
-      <div className="mb-4 flex justify-end">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => setShowDismissed(!showDismissed)}
-          className="whitespace-nowrap text-foreground"
-        >
-          {showDismissed ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-          {showDismissed ? "Hide Dismissed" : "Show Dismissed"} ({messages.filter(m => m.dismissed).length})
-        </Button>
+      <div className="mb-4">
+        <h2 className="text-2xl font-bold tracking-tight">Messages</h2>
       </div>
 
-      <Accordion type="single" collapsible value={openItem} onValueChange={setOpenItem} className="w-full">
+      {/* Use uncontrolled accordion with defaultValue to avoid controlled/uncontrolled error */}
+      <Accordion 
+        key={`message-accordion-${filteredMessages.length}`}
+        type="single" 
+        collapsible 
+        defaultValue=""
+        onValueChange={(value) => {
+          // Keep track of which message is open
+          setOpenItem(value || "");
+          
+          // Track read status when a message is opened
+          if (value && user) {
+            // Mark message as read in local state
+            setReadMessages(prev => {
+              const updated = new Set(prev);
+              updated.add(value);
+              return updated;
+            });
+            
+            // Record read status in Firestore
+            updateMessageReadStatus(value, user.uid);
+          }
+        }} 
+        className="w-full space-y-1">
         {filteredMessages.length > 0 ? filteredMessages.map((msg) => (
-          <AccordionItem key={msg.id} value={msg.id}>
-            <AccordionTrigger className={styles.accordionTriggerCustom}>
-              <div className="flex items-center space-x-2">
-                {getPriorityIcon(msg.priority as MessagePriority)}
-                <span>{msg.title}</span>
-              </div>
-              <div className="flex items-center space-x-4">
-                <time className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                  {formatTime(msg.createdAt)}
-                </time>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    toggleDismissed(msg.id);
-                  }}
-                  className="flex items-center space-x-1"
-                >
-                  {msg.dismissed ? (
-                    <>
-                      <Eye className="h-4 w-4" />
-                      <span className="text-xs">Show</span>
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="h-4 w-4" />
-                      <span className="text-xs">Dismiss</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <Alert className={`${getAlertClass(msg.priority as MessagePriority)}`}>
-                <div className="flex items-start space-x-2">
-                  {getPriorityIcon(msg.priority as MessagePriority)}
-                  <div>
-                    <AlertTitle>{msg.title}</AlertTitle>
-                    <AlertDescription>
-                      {msg.content}
-                    </AlertDescription>
+          <div key={msg.id} className="relative group">
+            <AccordionItem 
+              value={msg.id} 
+              className={`${styles.accordionItem} border-l-4
+                bg-background/80 hover:bg-accent/50 
+                dark:bg-background/90 dark:hover:bg-accent/30
+                rounded-md shadow-sm hover:shadow transition-colors`}
+              style={{ borderLeftColor: getPriorityBorderColor(msg.priority as MessagePriority) }}
+            >
+              <div>
+                <AccordionTrigger className={`${styles.customAccordionTrigger} flex-1 text-left ${styles.hideChevron}`}>
+                  <div className="flex items-center w-full">
+                    <div className={styles.iconContainer}>
+                      {getPriorityIcon(msg.priority as MessagePriority)}
+                    </div>
+                    <span className={`${styles.titleText} flex-1 text-left text-primary dark:text-primary text-base ${!readMessages.has(msg.id) ? 'font-bold' : 'font-normal'}`}>
+                      {msg.title}
+                    </span>
+                    <time className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      {formatTime(msg.createdAt)}
+                    </time>
                   </div>
+                </AccordionTrigger>
+              </div>
+              <AccordionContent>
+                <div className="prose dark:prose-invert max-w-none prose-sm pl-[0.5rem]">
+                  {msg.content}
                 </div>
-              </Alert>
-            </AccordionContent>
-          </AccordionItem>
+              </AccordionContent>
+            </AccordionItem>
+          </div>
         )) : (
           <Card className="p-6 text-center text-muted-foreground bg-card">
             <Info className="mx-auto h-10 w-10 mb-2 opacity-50" />
