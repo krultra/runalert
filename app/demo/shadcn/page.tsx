@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 
 // Import UI components - using relative paths
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -9,13 +9,27 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
 // Import icons
-import { AlertOctagon, AlertTriangle, Bell, Eye, EyeOff, Info, CheckCircle2, ChevronDown } from "lucide-react";
+import { AlertOctagon, AlertTriangle, Bell, Eye, EyeOff, Info, CheckCircle2, ChevronDown, Clock, Circle } from "lucide-react";
 
 // Import auth context and firebase services
 import { useAuth } from "@/app/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { messageService, Message } from "@/lib/firebase/messages";
-import { collection, deleteDoc, doc, getDocs, query, setDoc, where, Timestamp, updateDoc, arrayUnion } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  collection, 
+  query, 
+  where, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  setDoc, 
+  updateDoc, 
+  arrayUnion, 
+  deleteDoc, 
+  limit, 
+  Timestamp 
+} from "firebase/firestore";
 
 // Import styles
 import styles from "./accordion-override.module.css";
@@ -147,10 +161,31 @@ const formatTime = (date: Date) => {
 export default function ShadcnDemoPage() {
   // State to track which message is currently open
   const [openItem, setOpenItem] = useState<string>("");
-  // State for tracking opened messages
-  const [readMessages, setReadMessages] = useState<Set<string>>(new Set());
+  // State for tracking opened messages  // Track read messages for this user
+  const [readMessages, setReadMessages] = useState<Set<string>>(new Set<string>());
+  const [pendingReadOperations, setPendingReadOperations] = useState<{messageId: string, userId: string}[]>([]);
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [showDismissed, setShowDismissed] = useState<boolean>(false);
+
+  // Load pending operations from localStorage on component mount
+  useEffect(() => {
+    try {
+      const storedOperations = localStorage.getItem('ra_pendingReadOperations');
+      if (storedOperations) {
+        const parsed = JSON.parse(storedOperations);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          console.log(`Loaded ${parsed.length} pending read operations from localStorage`);
+          setPendingReadOperations(parsed);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading pending operations from localStorage:', error);
+    }
+  }, []);
+  // Track online/offline status with more reliable detection
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isReallyConnected, setIsReallyConnected] = useState(true); // Actual connection status from ping test
+  const connectivityInterval = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
   
   // Race status state - will come from Firebase in the future
@@ -159,6 +194,80 @@ export default function ShadcnDemoPage() {
     message: "All systems operational. The race is proceeding as planned.",
     timestamp: new Date()
   });
+
+  // Check if we're really connected by testing Firestore connectivity
+  const checkRealConnectivity = async () => {
+    try {
+      // Try to access a public collection as a connectivity test
+      const db = getFirestore();
+      
+      // Use the ra_messages collection which already exists and is readable by all users
+      const messagesQuery = query(
+        collection(db, "ra_messages"),
+        limit(1) // Just get one message to minimize data transfer
+      );
+      
+      // Just attempt the query - we don't care about results, just that it succeeds
+      await getDocs(messagesQuery);
+      
+      // If we made it here, Firestore is accessible
+      console.log('Firebase connectivity check: Connected');
+      setIsReallyConnected(true);
+      
+      // Clear any existing interval since we're now online
+      if (connectivityInterval.current) {
+        clearInterval(connectivityInterval.current);
+        connectivityInterval.current = null;
+      }
+    } catch (error) {
+      // If we can't reach Firebase, we're offline
+      console.log('Firebase connectivity check: Disconnected', error);
+      setIsReallyConnected(false);
+      
+      // Start periodic connectivity checks if we aren't already checking
+      if (!connectivityInterval.current) {
+        connectivityInterval.current = setInterval(() => {
+          checkRealConnectivity();
+        }, 180000); // Check every 3 minutes when offline (reduced frequency)
+      }
+    }
+  };
+  
+  // Keep track of online/offline status
+  useEffect(() => {
+    // Browser online/offline event handlers
+    const handleOnline = () => {
+      setIsOnline(true);
+      // When we detect we're back online, verify with an active check
+      checkRealConnectivity();
+      // Process pending operations when back online
+      if (user && pendingReadOperations.length > 0) {
+        processPendingOperations();
+      }
+    };
+    
+    const handleOffline = () => {
+      setIsOnline(false);
+      setIsReallyConnected(false); // Immediately assume disconnected when browser says offline
+    };
+    
+    // Check connectivity initially
+    checkRealConnectivity();
+    
+    // Add event listeners for online/offline detection
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      
+      // Clear interval if component unmounts
+      if (connectivityInterval.current) {
+        clearInterval(connectivityInterval.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Fetch messages from demo database...
@@ -170,10 +279,7 @@ export default function ShadcnDemoPage() {
       priority: msg.priority as LocalMessagePriority // Type assertion to make compatible
     })));
     
-    // Load previously read messages for this user
-    if (user) {
-      loadReadMessageStatus(user.uid);
-    }
+    // Read messages are now loaded in a separate useEffect with localStorage support
   }, [user]);
 
   useEffect(() => {
@@ -196,29 +302,121 @@ export default function ShadcnDemoPage() {
     return () => unsubscribe();
   }, [user]);
 
-  // Load read message status from Firestore
-  const loadReadMessageStatus = async (userId: string) => {
-    try {
-      const readStatusRef = collection(db, 'ra_userMessageStatus');
-      const q = query(readStatusRef, where('userId', '==', userId));
-      const querySnapshot = await getDocs(q);
-      
-      const readMsgs = new Set<string>();
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.messageId) {
-          readMsgs.add(data.messageId);
+  // Load read message status from Firestore and localStorage
+  useEffect(() => {
+    const loadReadMessageStatus = async () => {
+      // First, load from localStorage regardless of online status
+      try {
+        const storedReadMessages = localStorage.getItem('ra_readMessages');
+        if (storedReadMessages) {
+          const parsedData = JSON.parse(storedReadMessages);
+          if (Array.isArray(parsedData)) {
+            setReadMessages(new Set(parsedData));
+          }
         }
-      });
-      
-      setReadMessages(readMsgs);
-    } catch (error) {
-      console.error('Error loading read message status:', error);
+      } catch (localError) {
+        console.error("Error loading from localStorage:", localError);
+      }
+
+      // Then, if online and logged in, load from Firestore to get the latest
+      if (!user || !isReallyConnected) return;
+
+      try {
+        const q = query(
+          collection(db, "ra_userMessageStatus"),
+          where("userId", "==", user.uid)
+        );
+
+        const querySnapshot = await getDocs(q);
+        const readMessageIds = new Set<string>();
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.messageId) {
+            readMessageIds.add(data.messageId);
+          }
+        });
+        
+        // Merge with any local data to ensure we don't lose offline reads
+        setReadMessages(prevReadMessages => {
+          const merged = new Set([...prevReadMessages, ...readMessageIds]);
+          
+          // Update localStorage with the merged set
+          localStorage.setItem('ra_readMessages', JSON.stringify([...merged]));
+          
+          return merged;
+        });
+      } catch (error) {
+        console.error("Error loading read message status from Firestore:", error);
+      }
+    };
+    
+    loadReadMessageStatus();
+  }, [user, isReallyConnected]);
+
+  // Process any pending read operations that were queued during offline mode
+  const processPendingOperations = async () => {
+    if (!isReallyConnected || !user) return;
+    
+    console.log(`Processing ${pendingReadOperations.length} pending read operations`);
+    
+    // Create a copy to work with
+    const operations = [...pendingReadOperations];
+    
+    // Clear the pending operations list
+    setPendingReadOperations([]);
+    localStorage.removeItem('ra_pendingReadOperations');
+    
+    // Process each operation
+    for (const op of operations) {
+      try {
+        const statusId = `${op.userId}_${op.messageId}`;
+        await setDoc(doc(db, 'ra_userMessageStatus', statusId), {
+          userId: op.userId,
+          messageId: op.messageId,
+          opened: true,
+          openedAt: Timestamp.now(),
+        });
+        console.log(`Synced offline read status for message: ${op.messageId}`);
+      } catch (error) {
+        console.error(`Failed to sync message status for ${op.messageId}:`, error);
+      }
     }
   };
-  
-  // Update message read status in Firestore
+
+  // Update message read status in Firestore and localStorage
   const updateMessageReadStatus = async (messageId: string, userId: string) => {
+    // Always update localStorage first (works offline)
+    try {
+      // Get current read messages from localStorage
+      const storedReadMessages = localStorage.getItem('ra_readMessages') || '[]';
+      const readMessageArray = JSON.parse(storedReadMessages);
+      
+      // Add this message if not already present
+      if (!readMessageArray.includes(messageId)) {
+        readMessageArray.push(messageId);
+        localStorage.setItem('ra_readMessages', JSON.stringify(readMessageArray));
+        console.log('Message read status saved to localStorage');
+      }
+    } catch (localError) {
+      console.error("Error updating localStorage:", localError);
+    }
+    
+    // Then try to update Firestore if we're online
+    if (!isReallyConnected) {
+      console.log('Offline: Queueing read status update for later sync');
+      
+      // Add to pending operations queue
+      const newOperation = { messageId, userId };
+      const updatedQueue = [...pendingReadOperations, newOperation];
+      
+      // Update state and localStorage
+      setPendingReadOperations(updatedQueue);
+      localStorage.setItem('ra_pendingReadOperations', JSON.stringify(updatedQueue));
+      
+      return;
+    }
+    
     try {
       const statusId = `${userId}_${messageId}`;
       await setDoc(doc(db, 'ra_userMessageStatus', statusId), {
@@ -227,9 +425,10 @@ export default function ShadcnDemoPage() {
         opened: true,
         openedAt: Timestamp.now(),
       });
-      console.log('Message read status updated');
+      console.log('Message read status updated in Firestore');
     } catch (error) {
-      console.error('Error updating message read status:', error);
+      console.error('Error updating message read status in Firestore:', error);
+      // If Firestore update fails, we still have the local copy
     }
   };
 
@@ -295,6 +494,29 @@ export default function ShadcnDemoPage() {
 
   return (
     <div className="container mx-auto max-w-2xl py-8">
+      {/* Enhanced connection status indicator with pending operations info */}
+      <div className={`mb-4 py-1 px-3 rounded-md text-sm flex items-center justify-between ${isReallyConnected ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+        <div className="flex items-center">
+          <div className={`w-3 h-3 rounded-full mr-2 ${isReallyConnected ? 'bg-green-500 dark:bg-green-400' : 'bg-amber-500 dark:bg-amber-400'}`}></div>
+          <span className="font-medium">
+            {isReallyConnected ? 'Connected' : 'Offline Mode'}
+          </span>
+        </div>
+        <div>
+          {!isReallyConnected && pendingReadOperations.length > 0 && (
+            <span className="text-xs flex items-center">
+              <Clock className="h-3 w-3 mr-1" />
+              {pendingReadOperations.length} pending {pendingReadOperations.length === 1 ? 'update' : 'updates'}
+            </span>
+          )}
+          {!isReallyConnected && pendingReadOperations.length === 0 && (
+            <span className="text-xs">Changes saved locally</span>
+          )}
+          {isReallyConnected && pendingReadOperations.length > 0 && (
+            <span className="text-xs animate-pulse">Syncing...</span>
+          )}
+        </div>
+      </div>
       {/* Race Status Message */}
       <Card className="mb-6 bg-card overflow-hidden">
         <div className={`px-4 py-1 flex items-center justify-between ${raceStatus.status === 'normal' ? 'bg-green-100 dark:bg-green-900' : 
@@ -364,12 +586,19 @@ export default function ShadcnDemoPage() {
               <div>
                 <AccordionTrigger className={`${styles.customAccordionTrigger} flex-1 text-left ${styles.hideChevron}`}>
                   <div className="flex items-center w-full">
-                    <div className={styles.iconContainer}>
-                      {getPriorityIcon(msg.priority as MessagePriority)}
+                    <div className="relative mr-2">
+                      {!readMessages.has(msg.id) && (
+                        <div className="absolute top-0 left-0 h-full w-1 bg-blue-500 dark:bg-blue-400 rounded-sm" style={{ zIndex: 50 }}></div>
+                      )}
+                      <div className={styles.iconContainer}>
+                        {getPriorityIcon(msg.priority as MessagePriority)}
+                      </div>
                     </div>
-                    <span className={`${styles.titleText} flex-1 text-left text-primary dark:text-primary text-base ${!readMessages.has(msg.id) ? 'font-bold' : 'font-normal'}`}>
-                      {msg.title}
-                    </span>
+                    <div className="flex items-center flex-1">
+                      <span className={`${styles.titleText} text-left text-primary dark:text-primary text-base`}>
+                        {!readMessages.has(msg.id) ? <><span className="text-blue-500 dark:text-blue-400">• </span>{msg.title}</> : msg.title}
+                      </span>
+                    </div>
                     <time className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       {formatTime(msg.createdAt)}
                     </time>
