@@ -1,4 +1,5 @@
 firestore.rules
+firestore.rules.bak
 firestore.indexes.json
 firebase.json
 .firebaserc

@@ -7,13 +7,10 @@ const nextConfig = {
     config.ignoreWarnings = [
       { module: /firebase-admin/ },
       { file: /firestore\.rules/ },
+      { file: /firestore\.rules\.bak/ },
     ];
     
     return config;
-  },
-  // Handle missing firestore.rules file in production
-  experimental: {
-    instrumentationHook: true,
   },
   // Tell Next.js that Firebase files are optional
   typescript: {
