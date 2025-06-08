@@ -14,15 +14,28 @@ import {
 } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
-// Check if we have the required environment variables
+// Check if we have the required environment variables and log them in development
+// This helps debug environment variable issues
 const hasRequiredConfig = process.env.NEXT_PUBLIC_FIREBASE_API_KEY && 
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+
+// Log environment variables for debugging (safe as these are public keys)
+if (typeof window !== 'undefined') {
+  console.log('Firebase config check:', { 
+    hasApiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    hasProjectId: !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    hasAuthDomain: !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    hasRequiredConfig,
+    inBrowser: typeof window !== 'undefined'
+  });
+}
 
 // Safely initialize Firebase only when required environment variables are available
 // and when we're in a browser environment
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
+let googleProvider: GoogleAuthProvider | undefined;
 
 // Make sure we're on the client side before initializing Firebase
 if (typeof window !== 'undefined' && hasRequiredConfig) {
@@ -37,20 +50,35 @@ if (typeof window !== 'undefined' && hasRequiredConfig) {
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     };
     
+    console.log('Initializing Firebase with config:', {
+      hasApiKey: !!firebaseConfig.apiKey,
+      apiKeyLength: firebaseConfig.apiKey?.length,
+      hasAuthDomain: !!firebaseConfig.authDomain,
+      hasProjectId: !!firebaseConfig.projectId
+    });
+    
     // Initialize Firebase
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
     db = getFirestore(app);
+    
+    // Initialize Google provider (moved inside the conditional)
+    googleProvider = new GoogleAuthProvider();
+    googleProvider.setCustomParameters({
+      prompt: 'select_account'
+    });
+    
+    console.log('Firebase initialized successfully');
   } catch (error) {
     console.error('Firebase initialization error:', error);
   }
 }
-
-// Initialize Google provider
-const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-});
+else {
+  console.warn(
+    'Firebase not initialized because:',
+    !hasRequiredConfig ? 'Missing required environment variables' : 'Not in browser environment'
+  );
+}
 
 // Email link authentication action code settings
 const actionCodeSettings: ActionCodeSettings = {
@@ -118,6 +146,11 @@ export const signInWithGoogle = async (): Promise<UserCredential> => {
   if (!auth) {
     throw new Error('Firebase auth is not initialized');
   }
+  
+  if (!googleProvider) {
+    throw new Error('Google auth provider is not initialized');
+  }
+  
   return signInWithPopup(auth, googleProvider);
 };
 
