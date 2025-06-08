@@ -1,3 +1,16 @@
+const withPWA = require('next-pwa')({
+  dest: 'public',
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === 'development',
+  // Define which URLs to exclude from PWA caching
+  buildExcludes: [/middleware-manifest\.json$/],
+  // Add additional manifests patterns to avoid precache errors
+  publicExcludes: [
+    '!noprecache/**/*'
+  ],
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -24,6 +37,8 @@ const nextConfig = {
       { module: /firebase-admin/ },
       { file: /firestore\.rules/ },
       { file: /firestore\.rules\.bak/ },
+      // Also ignore PWA-related warnings
+      { message: /Critical dependency: the request of a dependency is an expression/ },
     ];
     
     return config;
@@ -40,4 +55,5 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+// Export the configuration with PWA support
+module.exports = withPWA(nextConfig);
