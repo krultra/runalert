@@ -1,3 +1,4 @@
+# Ignore Firebase-specific files during Vercel deployment
 firestore.rules
 firestore.rules.bak
 firestore.indexes.json

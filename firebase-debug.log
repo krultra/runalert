@@ -1,0 +1,199 @@
+[debug] [2025-06-07T21:29:47.436Z] ----------------------------------------------------------------------
+[debug] [2025-06-07T21:29:47.437Z] Command:       /home/tkruke/.nvm/versions/node/v22.16.0/bin/node /home/tkruke/.nvm/versions/node/v22.16.0/bin/firebase deploy --only hosting
+[debug] [2025-06-07T21:29:47.438Z] CLI Version:   14.5.1
+[debug] [2025-06-07T21:29:47.438Z] Platform:      linux
+[debug] [2025-06-07T21:29:47.438Z] Node Version:  v22.16.0
+[debug] [2025-06-07T21:29:47.438Z] Time:          Sat Jun 07 2025 23:29:47 GMT+0200 (Central European Summer Time)
+[debug] [2025-06-07T21:29:47.438Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-06-07T21:29:47.540Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-06-07T21:29:47.541Z] > authorizing via signed-in user (torgeir.kruke@gmail.com)
+[debug] [2025-06-07T21:29:47.541Z] [iam] checking project runnershubtest for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2025-06-07T21:29:47.541Z] Checked if tokens are valid: true, expires at: 1749335051901
+[debug] [2025-06-07T21:29:47.541Z] Checked if tokens are valid: true, expires at: 1749335051901
+[debug] [2025-06-07T21:29:47.542Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/runnershubtest:testIamPermissions [none]
+[debug] [2025-06-07T21:29:47.542Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/runnershubtest:testIamPermissions x-goog-quota-user=projects/runnershubtest
+[debug] [2025-06-07T21:29:47.542Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/runnershubtest:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-06-07T21:29:48.312Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/runnershubtest:testIamPermissions 200
+[debug] [2025-06-07T21:29:48.312Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/runnershubtest:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-06-07T21:29:48.312Z] Checked if tokens are valid: true, expires at: 1749335051901
+[debug] [2025-06-07T21:29:48.312Z] Checked if tokens are valid: true, expires at: 1749335051901
+[debug] [2025-06-07T21:29:48.313Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/runnershubtest [none]
+[debug] [2025-06-07T21:29:48.602Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/runnershubtest 200
+[debug] [2025-06-07T21:29:48.602Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/runnershubtest {"projectId":"runnershubtest","projectNumber":"230992926820","displayName":"RunnersHubTest","name":"projects/runnershubtest","resources":{"hostingSite":"runnershubtest"},"state":"ACTIVE","etag":"1_24bf551b-53e4-4456-86da-a530856f46f2"}
+[debug] [2025-06-07T21:29:49.931Z] defaultcredentials: writing to file /home/tkruke/.config/firebase/torgeir_kruke_gmail.com_application_default_credentials.json
+[debug] [2025-06-07T21:29:49.933Z] Checked if tokens are valid: true, expires at: 1749335051901
+[debug] [2025-06-07T21:29:49.933Z] Checked if tokens are valid: true, expires at: 1749335051901
+[debug] [2025-06-07T21:29:49.933Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/runnershubtest/sites pageToken=&pageSize=10
+[debug] [2025-06-07T21:29:50.941Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/runnershubtest/sites 200
+[debug] [2025-06-07T21:29:50.941Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/runnershubtest/sites {"sites":[{"name":"projects/runnershubtest/sites/runnershubtest","defaultUrl":"https://runnershubtest.web.app","appId":"1:230992926820:web:80c871dfff1220df05e771","type":"DEFAULT_SITE"}]}
+[debug] [2025-06-07T21:29:50.941Z] Checked if tokens are valid: true, expires at: 1749335051901
+[debug] [2025-06-07T21:29:50.941Z] Checked if tokens are valid: true, expires at: 1749335051901
+[debug] [2025-06-07T21:29:50.942Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/-/webApps/1:230992926820:web:80c871dfff1220df05e771/config [none]
+[debug] [2025-06-07T21:29:51.531Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/-/webApps/1:230992926820:web:80c871dfff1220df05e771/config 200
+[debug] [2025-06-07T21:29:51.531Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/-/webApps/1:230992926820:web:80c871dfff1220df05e771/config {"projectId":"runnershubtest","appId":"1:230992926820:web:80c871dfff1220df05e771","storageBucket":"runnershubtest.firebasestorage.app","apiKey":"AIzaSyDO3NfozmSTuWJ8OA7F0HzB3iuSgQvXaDM","authDomain":"runnershubtest.firebaseapp.com","messagingSenderId":"230992926820"}
+[info] 
+   Thank you for trying our early preview of Next.js support on Firebase Hosting.
+   During the preview, support is best-effort and breaking changes can be expected. Proceed with caution.
+   The integration is known to work with Next.js version 12 - 15.0. You may encounter errors.
+
+   Documentation: https://firebase.google.com/docs/hosting/frameworks/nextjs
+   File a bug: https://github.com/firebase/firebase-tools/issues/new?template=bug_report.md
+   Submit a feature request: https://github.com/firebase/firebase-tools/issues/new?template=feature_request.md
+
+   We'd love to learn from you. Express your interest in helping us shape the future of Firebase Hosting: https://goo.gle/41enW5X
+
+[debug] [2025-06-07T21:29:53.964Z] Checked if tokens are valid: true, expires at: 1749335051901
+[debug] [2025-06-07T21:29:53.964Z] Checked if tokens are valid: true, expires at: 1749335051901
+[debug] [2025-06-07T21:29:53.964Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/runnershubtest/sites/runnershubtest [none]
+[debug] [2025-06-07T21:29:54.190Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/runnershubtest/sites/runnershubtest 200
+[debug] [2025-06-07T21:29:54.190Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/runnershubtest/sites/runnershubtest {"name":"projects/runnershubtest/sites/runnershubtest","defaultUrl":"https://runnershubtest.web.app","appId":"1:230992926820:web:80c871dfff1220df05e771","type":"DEFAULT_SITE"}
+[info]    ▲ Next.js 15.3.3
+
+[info]    - Environments: .env.local, .env.production
+
+
+[info]    Creating an optimized production build ...
+
+[info] Failed to compile.
+
+
+[info] ./node_modules/firebase-admin/lib/utils/api-request.js
+Module not found: Can't resolve 'http2'
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./node_modules/firebase-admin/lib/utils/crypto-signer.js
+./node_modules/firebase-admin/lib/auth/base-auth.js
+./node_modules/firebase-admin/lib/auth/index.js
+./node_modules/firebase-admin/lib/esm/auth/index.js
+./lib/firebase/admin.ts
+./lib/firebase/roles.ts
+./lib/hooks/useUserRole.ts
+./app/admin/users/page.tsx
+
+node:events
+Module build failed: UnhandledSchemeError: Reading from "node:events" is not handled by plugins (Unhandled scheme).
+Webpack supports "data:" and "file:" URIs by default.
+You may need an additional plugin to handle "node:" URIs.
+    at /home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408376
+    at Hook.eval [as callAsync] (eval at create (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:14:9224), <anonymous>:6:1)
+    at Object.processResource (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408301)
+    at processResource (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5308)
+    at iteratePitchingLoaders (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4667)
+    at runLoaders (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:8590)
+    at NormalModule._doBuild (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408163)
+    at NormalModule.build (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:410176)
+    at /home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:82494
+    at NormalModule.needBuild (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:414126)
+
+Import trace for requested module:
+node:events
+./node_modules/@fastify/busboy/deps/dicer/lib/HeaderParser.js
+./node_modules/@fastify/busboy/deps/dicer/lib/Dicer.js
+./node_modules/@fastify/busboy/lib/main.js
+./node_modules/firebase-admin/lib/utils/api-request.js
+./node_modules/firebase-admin/lib/utils/crypto-signer.js
+./node_modules/firebase-admin/lib/auth/base-auth.js
+./node_modules/firebase-admin/lib/auth/index.js
+./node_modules/firebase-admin/lib/esm/auth/index.js
+./lib/firebase/admin.ts
+./lib/firebase/roles.ts
+./lib/hooks/useUserRole.ts
+./app/admin/users/page.tsx
+
+node:process
+Module build failed: UnhandledSchemeError: Reading from "node:process" is not handled by plugins (Unhandled scheme).
+Webpack supports "data:" and "file:" URIs by default.
+You may need an additional plugin to handle "node:" URIs.
+    at /home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408376
+    at Hook.eval [as callAsync] (eval at create (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:14:9224), <anonymous>:6:1)
+    at Object.processResource (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408301)
+    at processResource (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5308)
+    at iteratePitchingLoaders (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4667)
+    at runLoaders (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:8590)
+    at NormalModule._doBuild (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408163)
+    at NormalModule.build (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:410176)
+    at /home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:82494
+    at NormalModule.needBuild (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:414126)
+
+Import trace for requested module:
+node:process
+./node_modules/google-logging-utils/build/src/logging-utils.js
+./node_modules/google-logging-utils/build/src/index.js
+./node_modules/gcp-metadata/build/src/index.js
+./node_modules/google-auth-library/build/src/index.js
+./node_modules/firebase-admin/lib/app/credential-internal.js
+./node_modules/firebase-admin/lib/app/lifecycle.js
+./node_modules/firebase-admin/lib/app/index.js
+./node_modules/firebase-admin/lib/esm/app/index.js
+./lib/firebase/admin.ts
+./lib/firebase/roles.ts
+./lib/hooks/useUserRole.ts
+./app/admin/users/page.tsx
+
+node:stream
+Module build failed: UnhandledSchemeError: Reading from "node:stream" is not handled by plugins (Unhandled scheme).
+Webpack supports "data:" and "file:" URIs by default.
+You may need an additional plugin to handle "node:" URIs.
+    at /home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408376
+    at Hook.eval [as callAsync] (eval at create (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:14:9224), <anonymous>:6:1)
+    at Hook.CALL_ASYNC_DELEGATE [as _callAsync] (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:14:6378)
+    at Object.processResource (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408301)
+    at processResource (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5308)
+    at iteratePitchingLoaders (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4667)
+    at runLoaders (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:8590)
+    at NormalModule._doBuild (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408163)
+    at NormalModule.build (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:410176)
+    at /home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:82494
+
+Import trace for requested module:
+node:stream
+./node_modules/@fastify/busboy/lib/main.js
+./node_modules/firebase-admin/lib/utils/api-request.js
+./node_modules/firebase-admin/lib/utils/crypto-signer.js
+./node_modules/firebase-admin/lib/auth/base-auth.js
+./node_modules/firebase-admin/lib/auth/index.js
+./node_modules/firebase-admin/lib/esm/auth/index.js
+./lib/firebase/admin.ts
+./lib/firebase/roles.ts
+./lib/hooks/useUserRole.ts
+./app/admin/users/page.tsx
+
+node:util
+Module build failed: UnhandledSchemeError: Reading from "node:util" is not handled by plugins (Unhandled scheme).
+Webpack supports "data:" and "file:" URIs by default.
+You may need an additional plugin to handle "node:" URIs.
+    at /home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408376
+    at Hook.eval [as callAsync] (eval at create (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:14:9224), <anonymous>:6:1)
+    at Object.processResource (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408301)
+    at processResource (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5308)
+    at iteratePitchingLoaders (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4667)
+    at runLoaders (/home/tkruke/runalert/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:8590)
+    at NormalModule._doBuild (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:408163)
+    at NormalModule.build (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:410176)
+    at /home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:82494
+    at NormalModule.needBuild (/home/tkruke/runalert/node_modules/next/dist/compiled/webpack/bundle5.js:29:414126)
+
+Import trace for requested module:
+node:util
+./node_modules/@fastify/busboy/lib/main.js
+./node_modules/firebase-admin/lib/utils/api-request.js
+./node_modules/firebase-admin/lib/utils/crypto-signer.js
+./node_modules/firebase-admin/lib/auth/base-auth.js
+./node_modules/firebase-admin/lib/auth/index.js
+./node_modules/firebase-admin/lib/esm/auth/index.js
+./lib/firebase/admin.ts
+./lib/firebase/roles.ts
+./lib/hooks/useUserRole.ts
+./app/admin/users/page.tsx
+
+
+[info] 
+
+[info] > Build failed because of webpack errors
+
+[debug] [2025-06-07T21:30:04.342Z] Error: ENOENT: no such file or directory, open '/home/tkruke/runalert/.next/export-marker.json'
+[error] 
+[error] Error: An unexpected error has occurred.

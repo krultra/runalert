@@ -319,7 +319,7 @@ export default function ShadcnDemoPage() {
       }
 
       // Then, if online and logged in, load from Firestore to get the latest
-      if (!user || !isReallyConnected) return;
+      if (!user || !isReallyConnected || !db) return;
 
       try {
         const q = query(
@@ -370,6 +370,11 @@ export default function ShadcnDemoPage() {
     // Process each operation
     for (const op of operations) {
       try {
+        if (!db) {
+          console.error('Firestore is not initialized');
+          return;
+        }
+        
         const statusId = `${op.userId}_${op.messageId}`;
         await setDoc(doc(db, 'ra_userMessageStatus', statusId), {
           userId: op.userId,
@@ -418,6 +423,11 @@ export default function ShadcnDemoPage() {
     }
     
     try {
+      if (!db) {
+        console.error('Firestore is not initialized');
+        return;
+      }
+      
       const statusId = `${userId}_${messageId}`;
       await setDoc(doc(db, 'ra_userMessageStatus', statusId), {
         userId,
@@ -452,6 +462,11 @@ export default function ShadcnDemoPage() {
     const message = messages.find(m => m.id === id) as LocalMessage;
     if (!message) return;
 
+    if (!db) {
+      console.error('Firestore is not initialized');
+      return;
+    }
+    
     const userDocRef = doc(db, 'users', user.uid);
 
     try {

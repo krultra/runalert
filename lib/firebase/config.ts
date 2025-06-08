@@ -1,4 +1,4 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { 
   getAuth, 
   sendSignInLinkToEmail, 
@@ -9,24 +9,42 @@ import {
   UserCredential,
   ActionCodeSettings,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  Auth
 } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, Firestore } from 'firebase/firestore';
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
+// Check if we have the required environment variables
+const hasRequiredConfig = process.env.NEXT_PUBLIC_FIREBASE_API_KEY && 
+  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-// Initialize Firebase
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
+// Safely initialize Firebase only when required environment variables are available
+// and when we're in a browser environment
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
+let db: Firestore | undefined;
+
+// Make sure we're on the client side before initializing Firebase
+if (typeof window !== 'undefined' && hasRequiredConfig) {
+  try {
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    };
+    
+    // Initialize Firebase
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+  }
+}
 
 // Initialize Google provider
 const googleProvider = new GoogleAuthProvider();
@@ -66,6 +84,11 @@ export const clearEmailFromStorage = (): void => {
 
 // Send sign-in email link
 export const sendSignInLink = async (email: string): Promise<void> => {
+  // Make sure we have auth initialized
+  if (!auth) {
+    throw new Error('Firebase auth is not initialized');
+  }
+  
   // Save the email to localStorage for later use
   saveEmailForSignIn(email);
   
@@ -75,21 +98,34 @@ export const sendSignInLink = async (email: string): Promise<void> => {
 
 // Check if the current URL is a sign-in link
 export const isEmailSignInLink = (url: string): boolean => {
+  if (!auth) {
+    console.error('Firebase auth is not initialized');
+    return false;
+  }
   return isSignInWithEmailLink(auth, url);
 };
 
 // Complete sign-in with email link
 export const signInWithEmail = async (email: string, url: string): Promise<UserCredential> => {
+  if (!auth) {
+    throw new Error('Firebase auth is not initialized');
+  }
   return signInWithEmailLink(auth, email, url);
 };
 
 // Sign in with Google
 export const signInWithGoogle = async (): Promise<UserCredential> => {
+  if (!auth) {
+    throw new Error('Firebase auth is not initialized');
+  }
   return signInWithPopup(auth, googleProvider);
 };
 
 // Sign out the current user
 export const signOut = (): Promise<void> => {
+  if (!auth) {
+    throw new Error('Firebase auth is not initialized');
+  }
   return firebaseSignOut(auth);
 };
 
