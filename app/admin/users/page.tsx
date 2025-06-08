@@ -27,6 +27,14 @@ export default function AdminUsersPage() {
       try {
         setLoading(true);
         const db = getFirestore();
+        
+        // Check if Firestore is initialized
+        if (!db) {
+          setError('Firebase is not initialized. Please check your connection and try again.');
+          setLoading(false);
+          return;
+        }
+        
         const usersCollection = collection(db, 'users');
         const snapshot = await getDocs(usersCollection);
         

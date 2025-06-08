@@ -47,13 +47,23 @@ export default function ConfirmEmailSignIn() {
         
         // If display name exists, update the user's profile
         if (displayName && userCredential.user) {
-          const auth = getAuth();
-          if (auth.currentUser) {
-            await updateProfile(auth.currentUser, { displayName });
-            console.log('Updated profile with display name:', displayName);
-            // Clear the display name from storage
-            window.localStorage.removeItem('displayName');
-            setStatus('newUser');
+          try {
+            const auth = getAuth();
+            // Check if auth and current user are available
+            if (auth && auth.currentUser) {
+              await updateProfile(auth.currentUser, { displayName });
+              console.log('Updated profile with display name:', displayName);
+              // Clear the display name from storage
+              window.localStorage.removeItem('displayName');
+              setStatus('newUser');
+            } else {
+              console.warn('Auth or current user is undefined, skipping profile update');
+              setStatus('success');
+            }
+          } catch (profileErr) {
+            console.error('Error updating profile:', profileErr);
+            // Continue with success even if profile update fails
+            setStatus('success');
           }
         } else {
           setStatus('success');

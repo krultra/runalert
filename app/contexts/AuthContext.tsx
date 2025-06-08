@@ -23,6 +23,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // If auth is undefined, we can't listen to auth state changes
+    // This can happen during SSR or when Firebase isn't initialized
+    if (!auth) {
+      console.warn('Firebase auth is not initialized, authentication features will not work');
+      setLoading(false);
+      return () => {};
+    }
+    
+    // Only set up the listener if auth is available
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);

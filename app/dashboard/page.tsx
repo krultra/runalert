@@ -16,6 +16,9 @@ function DashboardContent() {
       router.push('/login');
     } catch (error) {
       console.error('Failed to sign out', error);
+      // Even if sign out fails due to Firebase not being initialized,
+      // we should still redirect the user to the login page
+      router.push('/login');
     }
   };
 
