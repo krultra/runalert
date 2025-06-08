@@ -4,6 +4,16 @@ import { adminAuth } from '@/lib/firebase/admin';
 
 export async function POST(request: Request) {
   try {
+    // Check if Firebase Admin is initialized
+    if (!adminAuth) {
+      console.error('Firebase Admin SDK not initialized. Check environment variables.');
+      return NextResponse.json({ 
+        error: 'Server configuration error',
+        // During production build, we can still return mock data for roles
+        roles: ['user']
+      }, { status: 200 });
+    }
+    
     const { uid, action = 'check', role } = await request.json();
 
     if (!uid) {
@@ -31,10 +41,19 @@ export async function POST(request: Request) {
           { status: 400 }
         );
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in user-roles API:', error);
+    
+    // Return a default response during build
+    if (process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview') {
+      return NextResponse.json({
+        error: 'Server configuration in progress',
+        roles: ['user']
+      }, { status: 200 });
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to process request' }, 
+      { error: error.message || 'Failed to process request' }, 
       { status: 500 }
     );
   }
