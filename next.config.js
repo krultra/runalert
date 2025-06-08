@@ -1,9 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // This ensures Firebase files don't cause build errors
-  webpack: (config) => {
-    // Ignore Firebase files during build
+  // Properly handle server-only modules
+  webpack: (config, { isServer }) => {
+    // Handle firebase-admin (server-only)
+    if (!isServer) {
+      // Don't bundle server-only modules on the client side
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        child_process: false,
+        http2: false,
+        dns: false,
+        path: false,
+        os: false,
+      };
+    }
+    
+    // Ignore Firebase files and warnings during build
     config.ignoreWarnings = [
       { module: /firebase-admin/ },
       { file: /firestore\.rules/ },
