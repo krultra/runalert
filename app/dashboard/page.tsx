@@ -5,6 +5,7 @@ import { signOut } from '@/lib/firebase/config';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '@/app/components/auth/ProtectedRoute';
 import { auth } from '@/lib/firebase/config';
+import { SoundTest } from '@/app/components/SoundTest';
 
 function DashboardContent() {
   const { user } = useAuth();
@@ -60,10 +61,13 @@ function DashboardContent() {
         <main>
           <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div className="px-4 py-8 sm:px-0">
-              <div className="border-4 border-dashed border-gray-200 rounded-lg h-96 p-4">
+              <div className="border-4 border-dashed border-gray-200 rounded-lg p-4" style={{ minHeight: '30rem' }}>
                 <p className="text-center text-gray-500 mb-8">
                   Welcome to your dashboard!
                 </p>
+                
+                {/* Sound Test Component */}
+                <SoundTest />
 
                 {/* DEMO LAUNCH BUTTONS */}
                 <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-center">

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sound File Generator</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    button { padding: 10px; margin: 5px; cursor: pointer; }
+    .card { border: 1px solid #ccc; padding: 15px; margin: 15px 0; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Sound File Generator</h1>
+  <p>Click buttons below to generate sound files for RunAlert notifications</p>
+  
+  <div class="card">
+    <h2>Info Sound</h2>
+    <p>A gentle notification sound for info messages</p>
+    <button onclick="generateInfoSound()">Generate Info Sound</button>
+    <div id="info-download"></div>
+  </div>
+  
+  <div class="card">
+    <h2>Warning Sound</h2>
+    <p>Medium urgency notification sound</p>
+    <button onclick="generateWarningSound()">Generate Warning Sound</button>
+    <div id="warning-download"></div>
+  </div>
+  
+  <div class="card">
+    <h2>Critical Sound</h2>
+    <p>High urgency notification sound</p>
+    <button onclick="generateCriticalSound()">Generate Critical Sound</button>
+    <div id="critical-download"></div>
+  </div>
+  
+  <div class="card">
+    <h2>Announcement Sound</h2>
+    <p>Distinctive sound for announcements</p>
+    <button onclick="generateAnnouncementSound()">Generate Announcement Sound</button>
+    <div id="announcement-download"></div>
+  </div>
+
+  <script>
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function createDownloadLink(buffer, fileName) {
+      const wavBlob = bufferToWave(buffer, 0, buffer.length);
+      const url = URL.createObjectURL(wavBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.innerHTML = `Download ${fileName}`;
+      link.className = 'download-link';
+      link.style.display = 'block';
+      link.style.margin = '10px 0';
+      link.style.color = 'blue';
+      return link;
+    }
+    
+    function bufferToWave(abuffer, offset, len) {
+      const numOfChan = abuffer.numberOfChannels;
+      const length = len * numOfChan * 2 + 44;
+      const buffer = new ArrayBuffer(length);
+      const view = new DataView(buffer);
+      const channels = [];
+      
+      // Write WAVE header
+      writeUTFBytes(view, 0, 'RIFF');
+      view.setUint32(4, length - 8, true);
+      writeUTFBytes(view, 8, 'WAVE');
+      writeUTFBytes(view, 12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numOfChan, true);
+      view.setUint32(24, abuffer.sampleRate, true);
+      view.setUint32(28, abuffer.sampleRate * 2 * numOfChan, true);
+      view.setUint16(32, numOfChan * 2, true);
+      view.setUint16(34, 16, true);
+      writeUTFBytes(view, 36, 'data');
+      view.setUint32(40, length - 44, true);
+      
+      // Write interleaved data
+      for (let i = 0; i < abuffer.numberOfChannels; i++) {
+        channels.push(abuffer.getChannelData(i));
+      }
+      
+      let offset2 = 44;
+      for (let i = 0; i < len; i++) {
+        for (let j = 0; j < numOfChan; j++) {
+          const sample = Math.max(-1, Math.min(1, channels[j][i]));
+          view.setInt16(offset2, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+          offset2 += 2;
+        }
+      }
+      
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+    
+    function writeUTFBytes(view, offset, string) {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    }
+
+    // Info sound: gentle ping
+    function generateInfoSound() {
+      const duration = 0.5;
+      const buffer = audioContext.createBuffer(1, audioContext.sampleRate * duration, audioContext.sampleRate);
+      const channel = buffer.getChannelData(0);
+      
+      // Generate a simple soft ping sound
+      for (let i = 0; i < buffer.length; i++) {
+        const t = i / audioContext.sampleRate;
+        // Exponential decay
+        const decay = Math.exp(-10 * t);
+        // Sin wave for tone
+        channel[i] = 0.5 * decay * Math.sin(2 * Math.PI * 880 * t);
+      }
+      
+      const downloadDiv = document.getElementById('info-download');
+      downloadDiv.innerHTML = '';
+      downloadDiv.appendChild(createDownloadLink(buffer, 'notification-info.wav'));
+      
+      // Play preview
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      source.start();
+    }
+    
+    // Warning sound: double beep
+    function generateWarningSound() {
+      const duration = 0.7;
+      const buffer = audioContext.createBuffer(1, audioContext.sampleRate * duration, audioContext.sampleRate);
+      const channel = buffer.getChannelData(0);
+      
+      // Generate a double beep sound
+      for (let i = 0; i < buffer.length; i++) {
+        const t = i / audioContext.sampleRate;
+        const beep1 = t < 0.2 ? Math.sin(2 * Math.PI * 660 * t) * 0.7 : 0;
+        const beep2 = (t > 0.3 && t < 0.5) ? Math.sin(2 * Math.PI * 880 * t) * 0.8 : 0;
+        channel[i] = beep1 + beep2;
+      }
+      
+      const downloadDiv = document.getElementById('warning-download');
+      downloadDiv.innerHTML = '';
+      downloadDiv.appendChild(createDownloadLink(buffer, 'notification-warning.wav'));
+      
+      // Play preview
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      source.start();
+    }
+    
+    // Critical sound: urgent siren-like sound
+    function generateCriticalSound() {
+      const duration = 1.0;
+      const buffer = audioContext.createBuffer(1, audioContext.sampleRate * duration, audioContext.sampleRate);
+      const channel = buffer.getChannelData(0);
+      
+      // Generate a siren-like sound
+      for (let i = 0; i < buffer.length; i++) {
+        const t = i / audioContext.sampleRate;
+        // Sweeping frequency from 700 to 1400Hz
+        const freq = 700 + 700 * Math.sin(2 * Math.PI * 4 * t);
+        channel[i] = 0.8 * Math.sin(2 * Math.PI * freq * t);
+      }
+      
+      const downloadDiv = document.getElementById('critical-download');
+      downloadDiv.innerHTML = '';
+      downloadDiv.appendChild(createDownloadLink(buffer, 'notification-critical.wav'));
+      
+      // Play preview
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      source.start();
+    }
+    
+    // Announcement sound: distinctive chime sequence
+    function generateAnnouncementSound() {
+      const duration = 0.8;
+      const buffer = audioContext.createBuffer(1, audioContext.sampleRate * duration, audioContext.sampleRate);
+      const channel = buffer.getChannelData(0);
+      
+      // Generate a chime sequence
+      for (let i = 0; i < buffer.length; i++) {
+        const t = i / audioContext.sampleRate;
+        // Mixture of frequencies
+        const tone1 = Math.sin(2 * Math.PI * 523.25 * t); // C5
+        const tone2 = Math.sin(2 * Math.PI * 659.26 * t); // E5
+        const tone3 = Math.sin(2 * Math.PI * 783.99 * t); // G5
+        
+        let amplitude = 0;
+        if (t < 0.2) {
+          amplitude = Math.exp(-5 * t) * tone1 * 0.5;
+        } else if (t < 0.4) {
+          amplitude = Math.exp(-5 * (t - 0.2)) * tone2 * 0.5;
+        } else if (t < 0.6) {
+          amplitude = Math.exp(-5 * (t - 0.4)) * tone3 * 0.5;
+        }
+        
+        channel[i] = amplitude;
+      }
+      
+      const downloadDiv = document.getElementById('announcement-download');
+      downloadDiv.innerHTML = '';
+      downloadDiv.appendChild(createDownloadLink(buffer, 'notification-announcement.wav'));
+      
+      // Play preview
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      source.start();
+    }
+  </script>
+</body>
+</html>
