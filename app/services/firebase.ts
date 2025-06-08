@@ -18,7 +18,7 @@ export interface Message {
   id: string;
   title: string;
   content: string;
-  priority: 'info' | 'warning' | 'critical';
+  priority: 'info' | 'warning' | 'critical' | 'announcement';
   createdAt: Date;
   dismissed?: boolean;
 }
@@ -110,18 +110,57 @@ export const messageService = {
   },
 
   // Subscribe to real-time message updates
-  subscribeToMessages(onMessage: (messages: Message[]) => void) {
+  subscribeToMessages(onMessage: (messages: Message[]) => void, playSound = true) {
     if (!db) {
       console.error('Firestore is not initialized');
       // Return a no-op unsubscribe function
       return () => {};
     }
     
+    // Keep track of seen message IDs to detect new ones
+    let seenMessageIds = new Set<string>();
+    let isFirstLoad = true;
+    
     const messagesRef = collection(db, 'ra_messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
       const messages = snapshot.docs.map(convertToMessage);
       onMessage(messages);
+      
+      // Handle sound notifications for new messages, but skip the first load
+      if (playSound && !isFirstLoad) {
+        try {
+          // Import sound service dynamically to avoid SSR issues
+          import('./soundService').then((soundModule) => {
+            // Use the updated playSoundForPriority function that supports all priority types
+            const { playSoundForPriority } = soundModule;
+            // Find messages that weren't in the previous set
+            const newMessages = messages.filter(msg => !seenMessageIds.has(msg.id));
+            
+            // Play sound for highest priority new message
+            if (newMessages.length > 0) {
+              // Determine highest priority message (critical > announcement > warning > info)
+              const priorityOrder = { 'critical': 4, 'announcement': 3, 'warning': 2, 'info': 1 };
+              const highestPriorityMsg = newMessages.reduce((highest, current) => {
+                const currentPriority = priorityOrder[current.priority] || 0;
+                const highestPriority = priorityOrder[highest.priority] || 0;
+                return currentPriority > highestPriority ? current : highest;
+              }, newMessages[0]);
+              
+              // Play the appropriate sound
+              playSoundForPriority(highestPriorityMsg.priority);
+            }
+          }).catch(err => {
+            console.error('Failed to load sound service:', err);
+          });
+        } catch (error) {
+          console.error('Error playing notification sound:', error);
+        }
+      }
+      
+      // Update seen message IDs
+      seenMessageIds = new Set(messages.map(msg => msg.id));
+      isFirstLoad = false;
     });
   },
 };

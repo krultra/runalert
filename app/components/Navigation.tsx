@@ -7,6 +7,7 @@ import { signOut } from '@/lib/firebase/config';
 import { useState, useEffect } from 'react';
 import { colors } from '@/app/styles/design-system';
 import styles from './navigation-override.module.css';
+import { SoundToggle } from './SoundToggle';
 
 export default function Navigation() {
   const { user, loading } = useAuth();
@@ -94,6 +95,9 @@ export default function Navigation() {
           </span>
         </div>
         <div className="flex items-center gap-4">
+          {/* Sound Notification Toggle */}
+          <SoundToggle />
+          
           {/* Dark Mode Toggle */}
           <button 
             onClick={toggleDarkMode} 
