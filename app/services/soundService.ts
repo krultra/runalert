@@ -288,10 +288,38 @@ export class SoundService {
     
     console.log(`[SoundService] Sound playback requested:`, debugInfo);
     
-    // Skip if muted EXCEPT for important alerts (critical & warning) when alwaysPlayImportant is true
+    // Check if this message type should override mute settings
+    // ONLY warning and critical messages should override mute
     const isImportantAlert = priority === 'critical' || priority === 'warning';
+    
+    // Skip sound playback if:
+    // 1. Sound is muted AND
+    // 2. Either it's not an important alert OR alwaysPlayImportant is false
     if (this.muted && !(isImportantAlert && this.alwaysPlayImportant)) {
-      console.log(`[SoundService] Sound muted for ${priority} priority. Override enabled: ${this.alwaysPlayImportant}`);
+      console.log(`[SoundService] Sound muted for ${priority} priority. Not playing sound.`);
+      
+      // For mobile devices, we might still want to vibrate for important alerts even when muted
+      if (isImportantAlert && 
+          typeof navigator !== 'undefined' && 
+          /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) && 
+          this.vibrateOnMobile[priority] && 
+          'vibrate' in navigator) {
+        
+        try {
+          // Use different vibration patterns based on priority
+          if (priority === 'critical') {
+            navigator.vibrate([200, 100, 200]); // Double vibration for critical
+            console.log('Critical vibration pattern triggered (muted mode)');
+          } else if (priority === 'warning') {
+            navigator.vibrate(200); // Standard vibration for warning
+            console.log('Warning vibration triggered (muted mode)');
+          }
+        } catch (e) {
+          console.warn('Vibration failed:', e);
+        }
+      }
+      
+      // Don't proceed with sound playback
       return;
     }
     
