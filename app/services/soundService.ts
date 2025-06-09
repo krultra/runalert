@@ -20,6 +20,7 @@ export class SoundService {
   private isInitialized = false;
   private muted = false;
   private deviceMuted = false; // Track if device is likely muted
+  private _muteCheckIntervalSet = false; // Track if we've set up the interval
   
   // Local storage key for mute state
   private readonly MUTE_STATE_KEY = 'runalert-sound-muted';
@@ -330,7 +331,7 @@ export class SoundService {
           this.deviceMuted = true;
         } else {
           console.log('[SoundService] AudioContext state:', audioContext.state);
-          this.deviceMuted = false;
+          // Don't set deviceMuted to false here, as we might still detect mute from other methods
         }
       }
       
@@ -341,6 +342,16 @@ export class SoundService {
         // We'll use a heuristic approach by trying to play a silent sound
         this.testSilentMode();
       }
+      
+      // Set up periodic checks for device mute state changes
+      if (typeof window !== 'undefined' && !this._muteCheckIntervalSet) {
+        this._muteCheckIntervalSet = true;
+        // Check every 30 seconds for mute state changes
+        setInterval(() => {
+          console.log('[SoundService] Performing periodic device mute check');
+          this.testSilentMode();
+        }, 30000);
+      }
     } catch (e) {
       console.warn('[SoundService] Error checking device mute state:', e);
     }
@@ -349,12 +360,15 @@ export class SoundService {
   // Test if device is in silent mode (iOS specific)
   private testSilentMode(): void {
     try {
+      // Create a short silent sound
       const silentSound = new Audio();
+      silentSound.src = 'data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
       silentSound.volume = 0.01; // Nearly silent
       
       // Set up event listeners
       silentSound.onplay = () => {
         console.log('[SoundService] Silent test sound started playing');
+        this.deviceMuted = false; // If we can play sound, device is not muted
       };
       
       silentSound.onerror = () => {
@@ -365,10 +379,15 @@ export class SoundService {
       // Try to play the silent sound
       const playPromise = silentSound.play();
       if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.log('[SoundService] Silent test sound failed:', error);
-          this.deviceMuted = true;
-        });
+        playPromise
+          .then(() => {
+            console.log('[SoundService] Silent sound played successfully, device is not muted');
+            this.deviceMuted = false;
+          })
+          .catch(error => {
+            console.log('[SoundService] Silent test sound failed:', error);
+            this.deviceMuted = true;
+          });
       }
     } catch (e) {
       console.warn('[SoundService] Error testing silent mode:', e);
