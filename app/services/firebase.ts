@@ -134,21 +134,47 @@ export const messageService = {
   },
 
   // Add a new message to the database (useful for testing)
-  async addMessage(message: { title: string; content: string; priority: string; createdAt: Date }): Promise<string> {
-    if (!db) throw new Error('Firestore is not initialized');
+  async addMessage(message: Partial<Message>) {
+    if (!db) {
+      throw new Error('Firestore is not initialized');
+    }
     
     try {
-      // Create a new message document
+      // Always use current time for test messages to ensure accurate timestamps
+      const now = new Date();
+      
+      // Create a new document with auto-generated ID
       const messagesRef = collection(db, 'ra_messages');
       const docRef = await addDoc(messagesRef, {
-        title: message.title,
-        content: message.content,
-        priority: message.priority,
-        createdAt: Timestamp.fromDate(message.createdAt),
-        dismissed: false
+        ...message,
+        // Ensure createdAt is always a fresh timestamp for test messages
+        createdAt: now,
       });
       
-      console.log('New test message created with ID:', docRef.id);
+      // Explicitly log the message details for debugging
+      console.log('New test message created with ID:', docRef.id, {
+        title: message.title,
+        priority: message.priority,
+        timestamp: now.toISOString()
+      });
+      
+      // Debug helper: Clear this specific ID from local tracking to ensure proper detection
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const storedIds = localStorage.getItem('runalert-seen-message-ids');
+          if (storedIds) {
+            const idsArray = JSON.parse(storedIds);
+            if (idsArray.includes(docRef.id)) {
+              const newIds = idsArray.filter((id: string) => id !== docRef.id);
+              localStorage.setItem('runalert-seen-message-ids', JSON.stringify(newIds));
+              console.log(`[MessageService] Removed new message ID ${docRef.id} from localStorage tracking`);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error clearing message ID from tracking:', e);
+      }
+      
       return docRef.id;
     } catch (error) {
       console.error('Error adding message:', error);
@@ -196,6 +222,11 @@ export const messageService = {
     try {
       // Try to load previously seen messages from localStorage
       const storedIds = localStorage.getItem('runalert-seen-message-ids');
+      
+      // For debugging - let's clear the localStorage to ensure proper detection
+      // Remove this line in production if needed
+      localStorage.removeItem('runalert-seen-message-ids');
+      
       seenMessageIds = storedIds ? new Set<string>(JSON.parse(storedIds)) : new Set<string>();
       console.log(`[MessageService] Loaded ${seenMessageIds.size} previously seen message IDs from storage`);
     } catch (error) {
@@ -273,18 +304,38 @@ export const messageService = {
             // Get the SoundService instance
             const { soundService } = soundModule;
             
+            // Show all messages received for debugging
+            console.log(`[MessageService] All messages: `, {
+              count: messages.length,
+              newest: messages.length > 0 ? {
+                id: messages[0].id,
+                title: messages[0].title,
+                createdAt: messages[0].createdAt
+              } : 'none'
+            });
+            
             // A message is considered new if:
             // 1. It's not in our long-term seen messages set OR
-            // 2. It was received in the last 30 seconds (for tab switches/refreshes)
+            // 2. It was received in the last 120 seconds (for tab switches/refreshes)
             const now = Date.now();
             const newMessages = messages.filter(msg => {
+              // Debug per message (only for first few)
+              if (messages.indexOf(msg) < 3) {
+                console.log(`[MessageService] Checking message:`, {
+                  id: msg.id,
+                  title: msg.title,
+                  inSeenSet: seenMessageIds.has(msg.id),
+                  inSessionSet: sessionMessageIds.has(msg.id)
+                });
+              }
+              
               // Check if it's genuinely a new message (never seen before)
               if (!seenMessageIds.has(msg.id)) {
+                console.log(`[MessageService] New message detected (not in seen set):`, msg.id);
                 return true;
               }
               
-              // Check for recent messages (timestamp within last 30 seconds)
-              // This helps with detecting new messages even after page refresh
+              // Check for recent messages (created in the last 120 seconds)
               if (msg.createdAt) {
                 // Handle different timestamp formats
                 let msgTimestamp: number | undefined;
@@ -304,16 +355,30 @@ export const messageService = {
                 }
                 
                 if (msgTimestamp) {
-                  const isRecent = (now - msgTimestamp) < 30000; // 30 seconds
-                  return isRecent && !sessionMessageIds.has(msg.id);
+                  const ageMs = now - msgTimestamp;
+                  const isRecent = ageMs < 120000; // 120 seconds (2 minutes)
+                  const isNew = isRecent && !sessionMessageIds.has(msg.id);
+                  
+                  if (isNew) {
+                    console.log(`[MessageService] Recent new message detected:`, {
+                      id: msg.id,
+                      ageSeconds: Math.round(ageMs/1000),
+                      timestamp: new Date(msgTimestamp).toISOString()
+                    });
+                  }
+                  
+                  return isNew;
                 }
               }
               
               return false;
             });
             
-            // Add these to our session tracking
-            newMessages.forEach(msg => sessionMessageIds.add(msg.id));
+            // Add only true new messages to session tracking
+            if (newMessages.length > 0) {
+              console.log(`[MessageService] Adding ${newMessages.length} messages to tracking`);
+              newMessages.forEach(msg => sessionMessageIds.add(msg.id));
+            }
             
             // Log detailed information for debugging
             console.log(`[MessageService] Found ${newMessages.length} new messages:`, 
@@ -355,18 +420,22 @@ export const messageService = {
           isFirstLoad ? 'First load' : 'Sound playback disabled');
       }
       
-      // Update seen message IDs and refresh time
-      const messageIds = messages.map(msg => msg.id);
-      
-      // Update both tracking sets
-      messageIds.forEach(id => {
-        seenMessageIds.add(id);
-        sessionMessageIds.add(id);
-      });
-      
-      // Save to localStorage periodically (not on every update to reduce overhead)
-      if (Math.random() < 0.2) { // ~20% chance to save on each update
-        saveSeenIds(seenMessageIds);
+      // IMPORTANT: Only add IDs to the seenMessageIds AFTER we've checked for new messages
+      // and triggered sound notifications. Otherwise we'll never detect new messages.
+      if (!isFirstLoad) {
+        // Update seen message IDs and refresh time
+        const messageIds = messages.map(msg => msg.id);
+        
+        // For first-time users or when debugging, don't overload session storage
+        // on the first load of a large message set
+        messageIds.forEach(id => {
+          seenMessageIds.add(id);
+        });
+        
+        // Save to localStorage periodically (not on every update to reduce overhead)
+        if (Math.random() < 0.2) { // ~20% chance to save on each update
+          saveSeenIds(seenMessageIds);
+        }
       }
       
       isFirstLoad = false;
