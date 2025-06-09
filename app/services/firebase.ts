@@ -9,9 +9,17 @@ import {
   onSnapshot,
   limit,
   Timestamp,
-  Firestore
+  Firestore,
+  doc,
+  DocumentData,
+  enableMultiTabIndexedDbPersistence,
+  enableIndexedDbPersistence,
+  CACHE_SIZE_UNLIMITED,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentSingleTabManager
 } from 'firebase/firestore';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, Auth, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
 
 // Define message data structure
 export interface Message {
@@ -23,18 +31,18 @@ export interface Message {
   dismissed?: boolean;
 }
 
-// Initialize Firebase conditionally
-let app: FirebaseApp | undefined;
-let db: Firestore | undefined;
-let auth: Auth | undefined;
-
 // Check if we have the required environment variables
 const hasRequiredConfig = process.env.NEXT_PUBLIC_FIREBASE_API_KEY && 
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-// Only initialize Firebase on the client side and when we have required config
-if (typeof window !== 'undefined' && hasRequiredConfig) {
-  try {
+// Only initialize Firebase if it hasn't been initialized yet
+let app: FirebaseApp | undefined;
+let db: Firestore | undefined;
+let auth: Auth | undefined;
+
+try {
+  // Check if Firebase has already been initialized
+  if (!getApps().length) {
     // Firebase configuration
     const firebaseConfig = {
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -46,12 +54,52 @@ if (typeof window !== 'undefined' && hasRequiredConfig) {
     };
 
     // Initialize Firebase
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    app = initializeApp(firebaseConfig);
+    
+    // Enhanced Firestore initialization for better PWA performance
+    // Use persistent cache with optimized settings for PWA
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentSingleTabManager(),
+        cacheSizeBytes: CACHE_SIZE_UNLIMITED
+      })
+    });
+    
+    // Enable offline persistence for PWA
+    if (typeof window !== 'undefined') {
+      enableIndexedDbPersistence(db).catch((err) => {
+        console.warn('Persistence could not be enabled:', err.code);
+      });
+    }
+    
+    console.log('Firebase initialized successfully with PWA optimizations');
+    
+    // Set up visibility and online status listeners for PWA
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      // Handle page visibility changes
+      document.addEventListener('visibilitychange', () => {
+        console.log('Visibility change event:', document.visibilityState);
+      });
+      
+      // Handle online/offline status
+      window.addEventListener('online', () => {
+        console.log('App is online, reconnecting to Firestore');
+      });
+      
+      window.addEventListener('offline', () => {
+        console.log('App is offline, Firestore will use cached data');
+      });
+    }
+    
+    auth = getAuth(app);
+  } else {
+    app = getApps()[0];
     db = getFirestore(app);
     auth = getAuth(app);
-  } catch (error) {
-    console.error('Error initializing Firebase:', error);
+    console.log('Using existing Firebase instance');
   }
+} catch (error) {
+  console.error('Error initializing Firebase:', error);
 }
 
 // Utility function to convert Firestore data to Message type
@@ -109,7 +157,7 @@ export const messageService = {
     return snapshot.docs.map(convertToMessage);
   },
 
-  // Subscribe to real-time message updates
+  // Subscribe to real-time message updates with PWA optimizations
   subscribeToMessages(onMessage: (messages: Message[]) => void, playSound = true) {
     if (!db) {
       console.error('Firestore is not initialized');
@@ -117,13 +165,57 @@ export const messageService = {
       return () => {};
     }
     
+    console.log('Setting up message subscription with enhanced PWA support');
+    
     // Keep track of seen message IDs to detect new ones
     let seenMessageIds = new Set<string>();
     let isFirstLoad = true;
+    let lastRefreshTime = Date.now();
     
+    // Function to manually check for updates (used for PWA background recovery)
+    const checkForUpdates = async () => {
+      try {
+        if (!db) return;
+        
+        console.log('Manually checking for message updates');
+        const messagesRef = collection(db, 'ra_messages');
+        const q = query(messagesRef, orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        const messages = snapshot.docs.map(convertToMessage);
+        
+        // Process new messages
+        const newMessages = messages.filter(msg => !seenMessageIds.has(msg.id));
+        if (newMessages.length > 0) {
+          console.log('Manual check found new messages:', newMessages.length);
+          onMessage(messages);
+          seenMessageIds = new Set(messages.map(msg => msg.id));
+        }
+      } catch (error) {
+        console.error('Error in manual message check:', error);
+      }
+    };
+    
+    // Setup visibility change handler for PWA
+    const visibilityHandler = () => {
+      if (document.visibilityState === 'visible') {
+        const timeSinceLastRefresh = Date.now() - lastRefreshTime;
+        // If it's been more than 30 seconds since last refresh when coming back to the app
+        if (timeSinceLastRefresh > 30000) {
+          console.log('App became visible after inactivity, checking for updates');
+          checkForUpdates();
+          lastRefreshTime = Date.now();
+        }
+      }
+    };
+    
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', visibilityHandler);
+    }
+    
+    // Setup regular snapshot listener
     const messagesRef = collection(db, 'ra_messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const messages = snapshot.docs.map(convertToMessage);
       onMessage(messages);
       
@@ -158,9 +250,18 @@ export const messageService = {
         }
       }
       
-      // Update seen message IDs
+      // Update seen message IDs and refresh time
       seenMessageIds = new Set(messages.map(msg => msg.id));
       isFirstLoad = false;
+      lastRefreshTime = Date.now();
     });
+    
+    // Return an enhanced unsubscribe function that also removes visibility listener
+    return () => {
+      unsubscribe();
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', visibilityHandler);
+      }
+    };
   },
 };
