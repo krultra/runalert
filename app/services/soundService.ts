@@ -21,6 +21,9 @@ export class SoundService {
   private muted = false;
   private deviceMuted = false; // Track if device is likely muted
   
+  // Local storage key for mute state
+  private readonly MUTE_STATE_KEY = 'runalert-sound-muted';
+  
   // Important messages (critical & warning) will still play sound regardless of mute setting
   private alwaysPlayImportant = true;
   
@@ -50,6 +53,34 @@ export class SoundService {
   
   private constructor() {
     // Private constructor for singleton pattern
+    this.loadMuteState();
+  }
+  
+  // Public methods to control mute state
+  public isMuted(): boolean {
+    return this.muted;
+  }
+  
+  // Save mute state to localStorage
+  private saveMuteState(): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(this.MUTE_STATE_KEY, JSON.stringify(this.muted));
+    }
+  }
+  
+  // Load mute state from localStorage
+  private loadMuteState(): void {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const savedState = localStorage.getItem(this.MUTE_STATE_KEY);
+        if (savedState !== null) {
+          this.muted = JSON.parse(savedState);
+          console.log(`[SoundService] Loaded mute state: ${this.muted}`);
+        }
+      } catch (e) {
+        console.error('[SoundService] Error loading mute state:', e);
+      }
+    }
   }
   
   public static getInstance(): SoundService {
@@ -611,16 +642,15 @@ export class SoundService {
   
   public toggleMute(): boolean {
     this.muted = !this.muted;
-    console.log(`Sound ${this.muted ? 'muted' : 'unmuted'}`);
+    this.saveMuteState();
+    console.log(`[SoundService] Sound ${this.muted ? 'muted' : 'unmuted'}`);
     return this.muted;
   }
   
   public setMuted(muted: boolean): void {
     this.muted = muted;
-  }
-  
-  public isMuted(): boolean {
-    return this.muted;
+    this.saveMuteState();
+    console.log(`[SoundService] Sound ${muted ? 'muted' : 'unmuted'}`);
   }
   
   public toggleAlwaysPlayImportant(): boolean {

@@ -8,12 +8,14 @@ import { useState, useEffect, useRef } from 'react';
 import { colors } from '@/app/styles/design-system';
 import styles from './navigation-override.module.css';
 import { SoundToggle } from './SoundToggle';
+import { soundService } from '@/app/services/soundService';
 
 export default function Navigation() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [darkMode, setDarkMode] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   
   // Check for user preference in localStorage, then system preference
@@ -67,6 +69,13 @@ export default function Navigation() {
     }
   }, []);
   
+  // Initialize mute state from sound service
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsMuted(soundService.isMuted());
+    }
+  }, []);
+
   // Add click outside listener to close menu
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -93,6 +102,11 @@ export default function Navigation() {
     } catch (error) {
       console.error('Failed to sign out', error);
     }
+  };
+
+  const handleToggleMute = () => {
+    const newMuteState = soundService.toggleMute();
+    setIsMuted(newMuteState);
   };
 
   const toggleDarkMode = () => {
@@ -179,6 +193,35 @@ export default function Navigation() {
             <div ref={menuRef} className="fixed right-4 top-[56px] mt-1 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50" style={{ backgroundColor: 'var(--background)', backdropFilter: 'none' }}>
               {/* User Section */}
               <div className="py-2">
+                <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Settings
+                </div>
+                
+                {/* Sound toggle */}
+                <button 
+                  onClick={handleToggleMute}
+                  className="flex w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <svg className="mr-2 h-4 w-4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {isMuted ? (
+                      <>
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                        <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                        <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
+                      </>
+                    ) : (
+                      <>
+                        <path d="M9 6v12l6-6z" />
+                        <path d="M16 9c1.1 0 2 .9 2 2s-.9 2-2 2" />
+                        <path d="M19 9c2.2 0 4 1.8 4 4s-1.8 4-4 4" />
+                      </>
+                    )}
+                  </svg>
+                  {isMuted ? 'Unmute Sounds' : 'Mute Sounds'}
+                </button>
+                
+                <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                
                 <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   User
                 </div>
