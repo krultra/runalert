@@ -223,6 +223,7 @@ export default function ShadcnDemoPage() {
   // Track online/offline status with more reliable detection
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [isReallyConnected, setIsReallyConnected] = useState(true); // Actual connection status from ping test
+  const [isSyncing, setIsSyncing] = useState(false); // Track when sync is in progress
   const connectivityInterval = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
   
@@ -276,7 +277,10 @@ export default function ShadcnDemoPage() {
       checkRealConnectivity();
       // Process pending operations when back online
       if (user && pendingReadOperations.length > 0) {
-        processPendingOperations();
+        // Add a small delay to allow connectivity to stabilize
+        setTimeout(() => {
+          processPendingOperations();
+        }, 1000);
       }
     };
     
@@ -405,33 +409,63 @@ export default function ShadcnDemoPage() {
   const processPendingOperations = async () => {
     if (!isReallyConnected || !user) return;
     
+    // Set syncing state to true when we start processing
+    setIsSyncing(true);
     console.log(`Processing ${pendingReadOperations.length} pending read operations`);
     
     // Create a copy to work with
     const operations = [...pendingReadOperations];
     
-    // Clear the pending operations list
+    // Clear the pending operations list immediately to prevent duplicate processing
     setPendingReadOperations([]);
     localStorage.removeItem('ra_pendingReadOperations');
     
-    // Process each operation
-    for (const op of operations) {
-      try {
-        if (!db) {
-          console.error('Firestore is not initialized');
-          return;
+    // Track successful operations
+    let successCount = 0;
+    let failCount = 0;
+    
+    try {
+      // Process each operation
+      for (const op of operations) {
+        try {
+          if (!db) {
+            console.error('Firestore is not initialized');
+            // Re-add operations to the queue if Firestore isn't available
+            setPendingReadOperations(prev => [...prev, ...operations]);
+            localStorage.setItem('ra_pendingReadOperations', JSON.stringify(operations));
+            throw new Error('Firestore not initialized');
+          }
+          
+          const statusId = `${op.userId}_${op.messageId}`;
+          await setDoc(doc(db, 'ra_userMessageStatus', statusId), {
+            userId: op.userId,
+            messageId: op.messageId,
+            opened: true,
+            openedAt: Timestamp.now(),
+          });
+          successCount++;
+          console.log(`Synced offline read status for message: ${op.messageId}`);
+        } catch (error) {
+          failCount++;
+          console.error(`Failed to sync message status for ${op.messageId}:`, error);
+          
+          // Re-queue failed operations
+          setPendingReadOperations(prev => [...prev, op]);
+          
+          // Update localStorage with the new pending operations
+          const currentQueue = JSON.parse(localStorage.getItem('ra_pendingReadOperations') || '[]');
+          currentQueue.push(op);
+          localStorage.setItem('ra_pendingReadOperations', JSON.stringify(currentQueue));
         }
-        
-        const statusId = `${op.userId}_${op.messageId}`;
-        await setDoc(doc(db, 'ra_userMessageStatus', statusId), {
-          userId: op.userId,
-          messageId: op.messageId,
-          opened: true,
-          openedAt: Timestamp.now(),
-        });
-        console.log(`Synced offline read status for message: ${op.messageId}`);
-      } catch (error) {
-        console.error(`Failed to sync message status for ${op.messageId}:`, error);
+      }
+    } finally {
+      // Always set syncing to false when we're done, regardless of success or failure
+      setIsSyncing(false);
+      console.log(`Sync complete: ${successCount} operations succeeded, ${failCount} failed and requeued`);
+      
+      // Force a re-check of connectivity to update UI
+      if (failCount > 0) {
+        checkRealConnectivity();
       }
     }
   };
@@ -620,8 +654,17 @@ export default function ShadcnDemoPage() {
           {!isReallyConnected && pendingReadOperations.length === 0 && (
             <span className="text-xs">Changes saved locally</span>
           )}
-          {isReallyConnected && pendingReadOperations.length > 0 && (
-            <span className="text-xs animate-pulse">Syncing...</span>
+          {isSyncing && (
+            <span className="text-xs flex items-center">
+              <span className="inline-block h-3 w-3 mr-1 rounded-full border-2 border-t-transparent border-green-500 animate-spin"></span>
+              Syncing...
+            </span>
+          )}
+          {isReallyConnected && !isSyncing && pendingReadOperations.length > 0 && (
+            <span className="text-xs">Waiting to sync...</span>
+          )}
+          {isReallyConnected && !isSyncing && pendingReadOperations.length === 0 && (
+            <span className="text-xs">All changes synced</span>
           )}
         </div>
       </div>
