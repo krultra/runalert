@@ -61,7 +61,7 @@ try {
     // Use persistent cache with optimized settings for PWA
     db = initializeFirestore(app, {
       localCache: persistentLocalCache({
-        tabManager: persistentSingleTabManager(),
+        tabManager: persistentSingleTabManager({ forceOwnership: true }),
         cacheSizeBytes: CACHE_SIZE_UNLIMITED
       })
     });
@@ -248,13 +248,16 @@ export const messageService = {
         try {
           // Import sound service dynamically to avoid SSR issues
           import('./soundService').then((soundModule) => {
-            // Use the updated playSoundForPriority function that supports all priority types
-            const { playSoundForPriority } = soundModule;
+            // Get the SoundService instance
+            const soundService = soundModule.SoundService.getInstance();
             // Find messages that weren't in the previous set
             const newMessages = messages.filter(msg => !seenMessageIds.has(msg.id));
             
             // Play sound for highest priority new message
             if (newMessages.length > 0) {
+              // Log that we have new messages for debugging
+              console.log(`Found ${newMessages.length} new messages:`, newMessages);
+              
               // Determine highest priority message (critical > announcement > warning > info)
               const priorityOrder = { 'critical': 4, 'announcement': 3, 'warning': 2, 'info': 1 };
               const highestPriorityMsg = newMessages.reduce((highest, current) => {
@@ -263,8 +266,11 @@ export const messageService = {
                 return currentPriority > highestPriority ? current : highest;
               }, newMessages[0]);
               
-              // Play the appropriate sound
-              playSoundForPriority(highestPriorityMsg.priority);
+              // Log which sound we're trying to play
+              console.log(`Playing sound for priority: ${highestPriorityMsg.priority}`);
+              
+              // Play the appropriate sound using the correct method name
+              soundService.playSound(highestPriorityMsg.priority);
             }
           }).catch(err => {
             console.error('Failed to load sound service:', err);

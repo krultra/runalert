@@ -163,35 +163,115 @@ export class SoundService {
       return;
     }
     
+    // Try two different approaches for better mobile compatibility
+    this.playWithNewInstance(priority);
+    
+    // On mobile, also try to trigger a user gesture event to help with autoplay restrictions
+    if (typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      console.log('Mobile device detected, using secondary playback method');
+      // Trigger vibration on supporting devices (provides feedback even when sound fails)
+      if ('vibrate' in navigator) {
+        try {
+          navigator.vibrate(200); // 200ms vibration
+          console.log('Vibration triggered');
+        } catch (e) {
+          console.warn('Vibration failed:', e);
+        }
+      }
+    }
+  }
+  
+  // Separated method to play with a fresh audio instance
+  private playWithNewInstance(priority: 'info' | 'warning' | 'critical' | 'announcement'): void {
     // Create a fresh audio instance for this play (avoids conflicts between rapid plays)
     const sound = this.createSound(priority);
     
     if (sound) {
-      try {
+      try {        
+        // Add event listeners for better debugging
+        sound.onplay = () => console.log(`${priority} sound started playing`);
+        sound.onended = () => console.log(`${priority} sound finished playing`);
+        sound.onerror = (e) => console.error(`${priority} sound error:`, e);
+        
         // Play immediately - using a new instance each time avoids issues with
         // multiple sounds playing at once or sounds not playing consistently
         console.log(`Playing ${priority} sound at volume ${sound.volume}. Source: ${sound.src}`);
         
-        // Play the appropriate sound for the priority
-        const playPromise = sound.play();
+        // Force load before play for better mobile compatibility
+        sound.load();
         
-        // Handle promise rejection (may occur if user hasn't interacted with page yet)
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            console.log(`${priority} sound played successfully`);
-          }).catch(error => {
-            console.warn(`Could not play ${priority} sound:`, error);
-            if (!this.hasUserInteraction) {
-              console.warn('This is likely because there has been no user interaction with the page yet.');
-              console.warn('Browser autoplay policy requires user interaction before audio can play.');
-            }
-          });
-        }
+        // Play the sound with a small delay to ensure it's loaded
+        setTimeout(() => {
+          // Play the appropriate sound for the priority
+          const playPromise = sound.play();
+          
+          // Handle promise rejection (may occur if user hasn't interacted with page yet)
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              console.log(`${priority} sound played successfully`);
+            }).catch(error => {
+              console.warn(`Could not play ${priority} sound:`, error);
+              if (!this.hasUserInteraction) {
+                console.warn('This is likely because there has been no user interaction with the page yet.');
+                console.warn('Browser autoplay policy requires user interaction before audio can play.');
+                this.tryFallbackPlayback(priority);
+              }
+            });
+          }
+        }, 50); // Small delay to ensure sound is ready
       } catch (error) {
         console.error(`Error playing ${priority} sound:`, error);
+        this.tryFallbackPlayback(priority);
       }
     } else {
       console.warn(`Sound for ${priority} priority could not be created`);
+    }
+  }
+  
+  // Try alternative audio playback approach for mobile
+  private tryFallbackPlayback(priority: 'info' | 'warning' | 'critical' | 'announcement'): void {
+    try {
+      console.log('Attempting fallback audio playback');
+      // Create an AudioContext (Web Audio API approach - better mobile compatibility)
+      if (typeof window !== 'undefined' && 'AudioContext' in window) {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const audioContext = new AudioContext();
+        audioContext.resume().then(() => {
+          console.log('AudioContext resumed, attempting fallback playback');
+          // Use an oscillator as a fallback sound
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          // Configure sound based on priority
+          if (priority === 'critical') {
+            oscillator.frequency.value = 880; // A5
+            gainNode.gain.value = 0.3;
+          } else if (priority === 'warning') {
+            oscillator.frequency.value = 659.25; // E5
+            gainNode.gain.value = 0.25;
+          } else if (priority === 'announcement') {
+            oscillator.frequency.value = 783.99; // G5
+            gainNode.gain.value = 0.28;
+          } else {
+            oscillator.frequency.value = 440; // A4
+            gainNode.gain.value = 0.2;
+          }
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          // Play a short beep
+          oscillator.start();
+          setTimeout(() => {
+            oscillator.stop();
+            console.log('Fallback sound completed');
+          }, 300); // 300ms beep
+        }).catch(error => {
+          console.error('Failed to resume AudioContext:', error);
+        });
+      }
+    } catch (e) {
+      console.error('Fallback audio playback failed:', e);
     }
   }
   

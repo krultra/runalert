@@ -95,9 +95,9 @@ export default function Navigation() {
 
   return (
     <header className="bg-white dark:bg-gray-900 w-full border-b border-gray-200 dark:border-gray-800 app-header" style={{ marginBottom: '16px' }}>
-      <div className="flex items-center justify-between px-4 py-3" style={{ padding: '16px', minHeight: '70px' }}>
-        <div className="flex items-center" style={{ gap: '16px' }}>
-          <Link href="/" className="flex-shrink-0 mr-3" style={{ height: '48px', width: '96px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="flex items-center justify-between px-4" style={{ padding: '8px 16px', minHeight: '56px' }}>
+        <div className="flex items-center" style={{ gap: '8px' }}>
+          <Link href="/" className="flex-shrink-0 mr-1" style={{ height: '38px', width: '76px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <img 
               src="/icons/thumbnail_MMC_logo_roed.png" 
               alt="RunAlert logo" 
@@ -108,7 +108,7 @@ export default function Navigation() {
               }} 
             />
           </Link>
-          <span className="font-bold tracking-tight" style={{ fontFamily: 'Inter, Arial, sans-serif', fontSize: '2.5rem' }}>
+          <span className="font-bold tracking-tight" style={{ fontFamily: 'Inter, Arial, sans-serif', fontSize: '2rem' }}>
             <span className="text-foreground">Run</span>
             <span className="text-destructive">Alert</span>
           </span>
