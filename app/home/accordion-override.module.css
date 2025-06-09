@@ -1,0 +1,51 @@
+/* Custom accordion styling overrides */
+.customAccordionTrigger {
+  background-color: transparent !important;
+  border-radius: 0.5rem 0.5rem 0 0 !important;
+  transition: background-color 0.2s ease !important;
+  min-height: 2rem !important;
+  line-height: 1.2 !important;
+  padding: 0.5rem 0.75rem !important;
+  margin-bottom: 0 !important;
+}
+
+/* Icon container styling */
+.customAccordionTrigger .iconContainer {
+  margin-right: 0.5rem !important;
+  display: flex;
+  align-items: center;
+}
+
+/* Title text styling */
+.customAccordionTrigger .titleText {
+  margin-right: 0.25rem;
+}
+
+.customAccordionTrigger:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important; /* Very subtle hover effect */
+}
+
+.customAccordionTrigger[data-state="open"] {
+  background-color: transparent !important;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  .customAccordionTrigger {
+    background-color: transparent !important;
+  }
+  
+  .customAccordionTrigger:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important; /* Very subtle hover effect */
+  }
+  
+  .customAccordionTrigger[data-state="open"] {
+    background-color: transparent !important;
+  }
+}
+
+/* Chevron icon styling */
+.customAccordionTrigger > svg {
+  color: hsl(var(--foreground) / 0.6) !important; /* Using foreground color with opacity */
+  transition: transform 0.2s ease !important;
+}

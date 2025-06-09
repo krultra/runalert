@@ -110,20 +110,16 @@ export default function Navigation() {
     localStorage.setItem('ra_theme', newDarkMode ? 'dark' : 'light');
   };
 
-  // Don't show navigation on auth pages
+  // Check if we're on an auth page
   const isAuthPage = ['/login', '/signup', '/forgot-password'].some(path => 
     typeof window !== 'undefined' && window.location.pathname.startsWith(path)
   );
-
-  if (isAuthPage || loading) {
-    return null;
-  }
 
   return (
     <header className="bg-white dark:bg-gray-900 w-full border-b border-gray-200 dark:border-gray-800 app-header" style={{ marginBottom: '16px' }}>
       <div className="flex items-center justify-between px-4" style={{ padding: '8px 16px', minHeight: '56px' }}>
         <div className="flex items-center" style={{ gap: '8px' }}>
-          <Link href="/" className="flex-shrink-0 mr-1" style={{ height: '38px', width: '76px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Link href="/home" className="flex-shrink-0 mr-1" style={{ height: '38px', width: '76px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <img 
               src="/icons/thumbnail_MMC_logo_roed.png" 
               alt="RunAlert logo" 
@@ -188,29 +184,55 @@ export default function Navigation() {
                 </div>
               <div className="py-1">
                 {user ? (
-                  <button 
-                    onClick={handleSignOut}
-                    className="flex w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <svg className="mr-2 h-4 w-4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                    Sign out
-                  </button>
+                  <>
+                    {/* Show user email if available */}
+                    <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 mb-1">
+                      {user.email || 'Signed in user'}
+                    </div>
+                    
+                    {/* Dashboard link for admin users */}
+                    {user.email?.includes('admin') && (
+                      <Link 
+                        href="/dashboard"
+                        className="flex w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <svg className="mr-2 h-4 w-4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                          <line x1="3" y1="9" x2="21" y2="9" />
+                          <line x1="9" y1="21" x2="9" y2="9" />
+                        </svg>
+                        Dashboard
+                      </Link>
+                    )}
+                    
+                    {/* Sign out button */}
+                    <button 
+                      onClick={handleSignOut}
+                      className="flex w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <svg className="mr-2 h-4 w-4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                      </svg>
+                      Sign Out
+                    </button>
+                  </>
                 ) : (
-                  <Link 
-                    href="/login"
-                    className="flex w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <svg className="mr-2 h-4 w-4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                      <polyline points="10 17 15 12 10 7" />
-                      <line x1="15" y1="12" x2="3" y2="12" />
-                    </svg>
-                    Sign in
-                  </Link>
+                  <>
+                    {/* Sign in link */}
+                    <Link 
+                      href="/login"
+                      className="flex w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <svg className="mr-2 h-4 w-4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                        <polyline points="10 17 15 12 10 7" />
+                        <line x1="15" y1="12" x2="3" y2="12" />
+                      </svg>
+                      Sign In
+                    </Link>
+                  </>
                 )}
               </div>
               </div>

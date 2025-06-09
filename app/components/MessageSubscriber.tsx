@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { messageService } from '@/app/services/firebase';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 /**
  * This component subscribes to Firestore messages and ensures
@@ -11,9 +12,16 @@ import { messageService } from '@/app/services/firebase';
 export function MessageSubscriber() {
   const [initialized, setInitialized] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
+  const { user, loading } = useAuth();
   
   useEffect(() => {
-    console.log('[MessageSubscriber] Component mounted, initializing message subscription...');
+    // Only subscribe to messages if the user is authenticated
+    if (!user || loading) {
+      console.log('[MessageSubscriber] User not authenticated or still loading, skipping message subscription');
+      return;
+    }
+    
+    console.log('[MessageSubscriber] User authenticated, initializing message subscription...');
     
     try {
       // Subscribe to messages and play sounds
@@ -59,14 +67,14 @@ export function MessageSubscriber() {
       }
       
       return () => {
-        console.log('[MessageSubscriber] Component unmounting, cleaning up subscription');
+        console.log('[MessageSubscriber] Component unmounting, cleaning up...');
         unsubscribe();
+        // No need to remove visibilityHandler as we're not setting it up in this component
       };
-    } catch (err) {
-      console.error('[MessageSubscriber] Error setting up message subscription:', err);
-      return () => {}; // Return empty cleanup function
+    } catch (error) {
+      console.error('[MessageSubscriber] Error setting up message subscription:', error);
     }
-  }, []);
+  }, [user, loading]);
   
   return null; // This component doesn't render anything visually
 }

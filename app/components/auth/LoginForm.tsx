@@ -21,7 +21,7 @@ export default function LoginForm() {
     try {
       const result = await signInWithGoogle();
       console.log('Google sign-in successful', result.user);
-      router.push('/dashboard');
+      router.push('/home');
     } catch (error: any) {
       console.error('Google sign-in error:', error);
       setError(error.message || 'Failed to sign in with Google');

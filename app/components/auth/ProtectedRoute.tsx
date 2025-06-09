@@ -19,8 +19,8 @@ export default function ProtectedRoute({
       // User is not authenticated, redirect to login
       router.push('/login?redirect=' + encodeURIComponent(window.location.pathname));
     } else if (!loading && user && requireAdmin && user.email !== 'admin@example.com') {
-      // User is not admin, redirect to home or show access denied
-      router.push('/');
+      // User is not admin, redirect to home page
+      router.push('/home');
     }
   }, [user, loading, router, requireAdmin]);
 

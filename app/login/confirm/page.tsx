@@ -74,7 +74,7 @@ export default function ConfirmEmailSignIn() {
         
         // Redirect after a short delay
         setTimeout(() => {
-          router.push('/dashboard');
+          router.push('/home');
         }, 2000);
         
       } catch (err: any) {
