@@ -668,6 +668,11 @@ export default function ShadcnDemoPage() {
       const hideRead = filterOptions.find(o => o.id === 'hideRead')?.active || false;
       const onlyImportant = filterOptions.find(o => o.id === 'important')?.active || false;
       
+      // Always show the currently open message regardless of filters
+      if (msg.id === openItem) {
+        return true;
+      }
+      
       // Apply filters
       if (onlyImportant) {
         return isImportant;
@@ -679,7 +684,7 @@ export default function ShadcnDemoPage() {
       
       return true;
     });
-  }, [messages, filterOptions, readMessages]);
+  }, [messages, filterOptions, readMessages, openItem]);
 
 
 
@@ -805,6 +810,7 @@ export default function ShadcnDemoPage() {
           type="single" 
           collapsible 
           defaultValue=""
+          value={openItem}
           onValueChange={(value) => {
             // Keep track of which message is open
             setOpenItem(value || "");
