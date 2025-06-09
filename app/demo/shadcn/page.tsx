@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 // Import WelcomeDialog - using correct import path
 import dynamic from 'next/dynamic';
@@ -15,12 +16,13 @@ import dynamic from 'next/dynamic';
 const WelcomeDialog = dynamic(() => import("@/app/components/WelcomeDialog"), { ssr: false });
 
 // Import icons
-import { AlertOctagon, AlertTriangle, Bell, Eye, EyeOff, Info, CheckCircle2, ChevronDown, Clock, Circle } from "lucide-react";
+import { AlertOctagon, AlertTriangle, Bell, Eye, EyeOff, Info, CheckCircle2, ChevronDown, Clock, Circle, Filter, EyeOff as NoEye } from "lucide-react";
 
 // Import auth context and firebase services
 import { useAuth } from "@/app/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { messageService, Message } from "@/lib/firebase/messages";
+import { raceStatusService, RaceStatus } from "@/lib/firebase/raceStatus";
 import { soundService } from "@/app/services/soundService";
 import { 
   getFirestore, 
@@ -51,6 +53,14 @@ interface LocalMessage extends Message {
 
 // Define message priority types for clarity
 type MessagePriority = "info" | "warning" | "critical" | "announcement" | "normal";
+
+// Define filter types
+type FilterOption = {
+  id: string;
+  icon: React.ElementType;
+  tooltip: string;
+  active: boolean;
+};
 
 // Ensure types are compatible
 type LocalMessagePriority = Message["priority"];
@@ -172,11 +182,16 @@ export default function ShadcnDemoPage() {
   const [readMessages, setReadMessages] = useState<Set<string>>(new Set<string>());
   const [pendingReadOperations, setPendingReadOperations] = useState<{messageId: string, userId: string}[]>([]);
   const [messages, setMessages] = useState<LocalMessage[]>([]);
-  const [showDismissed, setShowDismissed] = useState<boolean>(false);
+  // Message filter state with icon buttons
+  const [filterOptions, setFilterOptions] = useState<FilterOption[]>([
+    { id: 'hideRead', icon: NoEye, tooltip: 'Hide read info & announcement messages', active: false },
+    { id: 'important', icon: AlertTriangle, tooltip: 'Show only warning & critical messages', active: false },
+  ]);
 
-  // Load pending operations from localStorage on component mount
+  // Load pending operations and user preferences from localStorage on component mount
   useEffect(() => {
     try {
+      // Load pending operations
       const storedOperations = localStorage.getItem('ra_pendingReadOperations');
       if (storedOperations) {
         const parsed = JSON.parse(storedOperations);
@@ -185,8 +200,24 @@ export default function ShadcnDemoPage() {
           setPendingReadOperations(parsed);
         }
       }
+      
+      // Load filter options preferences
+      try {
+        const storedFilterOptions = localStorage.getItem('ra_filterOptions');
+        if (storedFilterOptions) {
+          const parsedOptions = JSON.parse(storedFilterOptions);
+          if (Array.isArray(parsedOptions) && parsedOptions.length === 2) {
+            setFilterOptions(options => options.map((option, index) => ({
+              ...option,
+              active: parsedOptions[index].active
+            })));
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing stored filter options:', error);
+      }
     } catch (error) {
-      console.error('Error loading pending operations from localStorage:', error);
+      console.error('Error loading user preferences from localStorage:', error);
     }
   }, []);
   // Track online/offline status with more reliable detection
@@ -195,12 +226,8 @@ export default function ShadcnDemoPage() {
   const connectivityInterval = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
   
-  // Race status state - will come from Firebase in the future
-  const [raceStatus, setRaceStatus] = useState<RaceStatusMessage>({
-    status: "normal",
-    message: "All systems operational. The race is proceeding as planned.",
-    timestamp: new Date()
-  });
+  // Race status state from Firestore
+  const [raceStatus, setRaceStatus] = useState<RaceStatus | null>(null);
 
   // Check if we're really connected by testing Firestore connectivity
   const checkRealConnectivity = async () => {
@@ -289,8 +316,10 @@ export default function ShadcnDemoPage() {
     // Read messages are now loaded in a separate useEffect with localStorage support
   }, [user]);
 
+  // Subscribe to messages and race status when component mounts
   useEffect(() => {
-    const unsubscribe = messageService.subscribeToMessages((newMessages: Message[]) => {
+    // Subscribe to messages
+    const unsubscribeMessages = messageService.subscribeToMessages((newMessages: Message[]) => {
       const filteredMessages = newMessages.map((msg: Message) => ({
         ...msg,
         dismissed: user?.dismissedMessages?.includes?.(msg.id) ?? false
@@ -298,6 +327,13 @@ export default function ShadcnDemoPage() {
       setMessages(filteredMessages);
     });
     
+    // Subscribe to race status for the current event edition
+    const unsubscribeRaceStatus = raceStatusService.subscribeToRaceStatus(
+      'mmc-2025', // Current event edition ID
+      setRaceStatus
+    );
+    
+    // Initial fetch of messages
     messageService.getMessages().then((newMessages: Message[]) => {
       const filteredMessages = newMessages.map((msg: Message) => ({
         ...msg,
@@ -306,7 +342,11 @@ export default function ShadcnDemoPage() {
       setMessages(filteredMessages);
     });
     
-    return () => unsubscribe();
+    // Cleanup subscriptions on unmount
+    return () => {
+      unsubscribeMessages();
+      unsubscribeRaceStatus();
+    };
   }, [user]);
 
   // Load read message status from Firestore and localStorage
@@ -507,15 +547,59 @@ export default function ShadcnDemoPage() {
     }
   };
 
+  // Save filter options when they change
+  useEffect(() => {
+    try {
+      const filterState = filterOptions.map(option => ({ id: option.id, active: option.active }));
+      localStorage.setItem('ra_filterOptions', JSON.stringify(filterState));
+    } catch (error) {
+      console.error('Error saving filter options to localStorage:', error);
+    }
+  }, [filterOptions]);
+  
+  // Toggle filter option - each filter is independent
+  const toggleFilter = (id: string) => {
+    setFilterOptions(options => {
+      return options.map(option => 
+        option.id === id ? { ...option, active: !option.active } : option
+      );
+    });
+  };
+
   const filteredMessages = useMemo(() => {
-    // Filter messages by dismissed status only
-    return messages.filter((msg) => showDismissed || !msg.dismissed);
-  }, [messages, showDismissed]);
+    // Filter messages based on current filter state
+    return messages.filter(msg => {
+      // Always filter out dismissed messages
+      if (msg.dismissed) {
+        return false;
+      }
+      
+      const priority = msg.priority as MessagePriority;
+      const isRead = readMessages.has(msg.id);
+      const isInfo = priority === 'info' || priority === 'normal' || priority === 'announcement';
+      const isImportant = priority === 'warning' || priority === 'critical';
+      
+      // Get current filter states
+      const hideRead = filterOptions.find(o => o.id === 'hideRead')?.active || false;
+      const onlyImportant = filterOptions.find(o => o.id === 'important')?.active || false;
+      
+      // Apply filters
+      if (onlyImportant) {
+        return isImportant;
+      }
+      
+      if (hideRead && isRead && isInfo) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [messages, filterOptions, readMessages]);
 
 
 
   return (
-    <div className="container mx-auto max-w-2xl py-8">
+    <div className="container mx-auto max-w-2xl py-8 h-full overflow-y-auto">
       {/* Add WelcomeDialog for sound notification permissions */}
       <WelcomeDialog />
       {/* Enhanced connection status indicator with pending operations info */}
@@ -541,73 +625,112 @@ export default function ShadcnDemoPage() {
           )}
         </div>
       </div>
-      {/* Race Status Message */}
-      <Card className="mb-6 bg-card overflow-hidden">
-        <div className={`px-4 py-1 flex items-center justify-between ${raceStatus.status === 'normal' ? 'bg-green-100 dark:bg-green-900' : 
-                         raceStatus.status === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900' : 
-                         'bg-red-100 dark:bg-red-900'}`}>
-          <div className="flex items-center">
-            {raceStatus.status === 'normal' ? (
-              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
-            ) : raceStatus.status === 'warning' ? (
-              <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
-            ) : (
-              <AlertOctagon className="h-5 w-5 text-red-600 dark:text-red-400 mr-2" />
-            )}
-            <span className={`text-sm font-medium ${raceStatus.status === 'normal' ? 'text-green-800 dark:text-green-300' : 
-                              raceStatus.status === 'warning' ? 'text-yellow-800 dark:text-yellow-300' : 
-                              'text-red-800 dark:text-red-300'}`}>
-              Race Status: {raceStatus.status.charAt(0).toUpperCase() + raceStatus.status.slice(1)}
-            </span>
+      {/* Race Status Message - Dynamic from Firestore */}
+      {raceStatus ? (
+        <Card className="mb-6 overflow-hidden border-2" 
+              style={{
+                borderColor: raceStatus.status === 'green' ? '#22c55e' : 
+                             raceStatus.status === 'yellow' ? '#eab308' : 
+                             '#ef4444'
+              }}>
+          <div className={`px-4 py-2 flex items-center justify-between ${
+                raceStatus.status === 'green' ? 'bg-green-100 dark:bg-green-900/70' : 
+                raceStatus.status === 'yellow' ? 'bg-yellow-100 dark:bg-yellow-900/70' : 
+                'bg-red-100 dark:bg-red-900/70'
+              }`}>
+            <div className="flex items-center">
+              {raceStatus.status === 'green' ? (
+                <div className="relative">
+                  <div className="absolute -left-1 -top-1 w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
+                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
+                </div>
+              ) : raceStatus.status === 'yellow' ? (
+                <div className="relative">
+                  <div className="absolute -left-1 -top-1 w-2 h-2 bg-yellow-500 rounded-full animate-ping"></div>
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="absolute -left-1 -top-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
+                  <AlertOctagon className="h-5 w-5 text-red-600 dark:text-red-400 mr-2" />
+                </div>
+              )}
+              <span className={`text-sm font-medium ${raceStatus.status === 'green' ? 'text-green-800 dark:text-green-300' : 
+                                raceStatus.status === 'yellow' ? 'text-yellow-800 dark:text-yellow-300' : 
+                                'text-red-800 dark:text-red-300'}`}>
+                {raceStatus.title ? raceStatus.title : `Status: ${raceStatus.status.charAt(0).toUpperCase() + raceStatus.status.slice(1)}`}
+              </span>
+            </div>
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-full mr-2 ${raceStatus.status === 'green' ? 'bg-green-500' : 
+                                raceStatus.status === 'yellow' ? 'bg-yellow-500' : 
+                                'bg-red-500'}`}></div>
+              <span className="text-xs text-muted-foreground">
+                {formatTime(raceStatus.updatedAt)}
+              </span>
+            </div>
           </div>
-          <span className="text-xs text-muted-foreground">
-            {formatTime(raceStatus.timestamp)}
-          </span>
-        </div>
-        <CardContent className="max-h-32 overflow-y-auto p-4">
-          <p className="text-sm">{raceStatus.message}</p>
-        </CardContent>
-      </Card>
+          {raceStatus.content && (
+            <CardContent className="max-h-32 overflow-y-auto p-4 bg-card">
+              <p className="text-sm">{raceStatus.content}</p>
+            </CardContent>
+          )}
+        </Card>
+      ) : null}
 
-      <div className="mb-4">
-        <h2 className="text-2xl font-bold tracking-tight">Messages</h2>
+      {/* Filter buttons - simplified to just icon buttons */}
+      <div className="flex justify-end gap-3 mb-4 pt-2">
+        {filterOptions.map((option) => (
+          <Button
+            key={option.id}
+            variant={option.active ? "default" : "outline"}
+            size="sm"
+            className={`relative ${option.active ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1' : 'bg-background hover:bg-muted'}`}
+            title={option.tooltip}
+            onClick={() => toggleFilter(option.id)}
+          >
+            {React.createElement(option.icon, { className: "h-4 w-4" })}
+            {option.active && <span className="absolute -top-1 -right-1 flex h-3 w-3 rounded-full bg-green-500"></span>}
+          </Button>
+        ))}
       </div>
 
       {/* Use uncontrolled accordion with defaultValue to avoid controlled/uncontrolled error */}
-      <Accordion 
-        key={`message-accordion-${filteredMessages.length}`}
-        type="single" 
-        collapsible 
-        defaultValue=""
-        onValueChange={(value) => {
-          // Keep track of which message is open
-          setOpenItem(value || "");
-          
-          // Track read status when a message is opened
-          if (value && user) {
-            // Check if this is the first time reading this message
-            const isFirstTimeReading = !readMessages.has(value);
+      <div className="overflow-y-auto max-h-[60vh]">
+        <Accordion 
+          key={`message-accordion-${filteredMessages.length}`}
+          type="single" 
+          collapsible 
+          defaultValue=""
+          onValueChange={(value) => {
+            // Keep track of which message is open
+            setOpenItem(value || "");
             
-            // Mark message as read in local state
-            setReadMessages(prev => {
-              const updated = new Set(prev);
-              updated.add(value);
-              return updated;
-            });
-            
-            // Record read status in Firestore
-            updateMessageReadStatus(value, user.uid);
-            
-            // Play the message-read sound if this is the first time reading
-            if (isFirstTimeReading) {
-              // Import dynamically to avoid SSR issues
-              import('@/app/services/soundService').then(({ soundService }) => {
-                soundService.playSound('messageRead');
+            // Track read status when a message is opened
+            if (value && user) {
+              // Check if this is the first time reading this message
+              const isFirstTimeReading = !readMessages.has(value);
+              
+              // Mark message as read in local state
+              setReadMessages(prev => {
+                const updated = new Set(prev);
+                updated.add(value);
+                return updated;
               });
+              
+              // Record read status in Firestore
+              updateMessageReadStatus(value, user.uid);
+              
+              // Play the message-read sound if this is the first time reading
+              if (isFirstTimeReading) {
+                // Import dynamically to avoid SSR issues
+                import('@/app/services/soundService').then(({ soundService }) => {
+                  soundService.playSound('messageRead');
+                });
+              }
             }
-          }
-        }} 
-        className="w-full space-y-1">
+          }} 
+          className="w-full space-y-1">
         {filteredMessages.length > 0 ? filteredMessages.map((msg) => (
           <div key={msg.id} className="relative group">
             <AccordionItem 
@@ -653,7 +776,8 @@ export default function ShadcnDemoPage() {
             No messages match the current filter.
           </Card>
         )}
-      </Accordion>
+        </Accordion>
+      </div>
       <Separator className="my-8" />
       <Button variant="secondary" className="w-full mt-4" onClick={() => window.location.href = '/dashboard'}>Back to Dashboard</Button>
     </div>

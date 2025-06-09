@@ -16,11 +16,25 @@ export default function Navigation() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   
-  // Check for system preference on initial load and add listener for changes
+  // Check for user preference in localStorage, then system preference
   useEffect(() => {
-    // Function to update based on preference
-    const updateDarkMode = () => {
-      if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined') {
+      // Check localStorage first for user preference
+      const storedTheme = localStorage.getItem('ra_theme');
+      
+      if (storedTheme) {
+        // User has explicitly set a preference
+        const isDarkMode = storedTheme === 'dark';
+        setDarkMode(isDarkMode);
+        
+        // Apply dark mode class to html element
+        if (isDarkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } else {
+        // No stored preference, use system preference
         const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
         setDarkMode(isDarkMode);
         
@@ -31,17 +45,26 @@ export default function Navigation() {
           document.documentElement.classList.remove('dark');
         }
       }
-    };
+    }
     
-    // Initial check
-    updateDarkMode();
-    
-    // Listen for changes in preference
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    mediaQuery.addEventListener('change', updateDarkMode);
-    
-    // Cleanup
-    return () => mediaQuery.removeEventListener('change', updateDarkMode);
+    // We don't add a listener for system preference changes if the user has set a preference
+    // Only listen for system changes if no user preference exists
+    if (!localStorage.getItem('ra_theme')) {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const updateDarkMode = () => {
+        const isDarkMode = mediaQuery.matches;
+        setDarkMode(isDarkMode);
+        
+        if (isDarkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      };
+      
+      mediaQuery.addEventListener('change', updateDarkMode);
+      return () => mediaQuery.removeEventListener('change', updateDarkMode);
+    }
   }, []);
   
   // Add click outside listener to close menu
@@ -82,6 +105,9 @@ export default function Navigation() {
     } else {
       document.documentElement.classList.remove('dark');
     }
+    
+    // Store user preference in localStorage
+    localStorage.setItem('ra_theme', newDarkMode ? 'dark' : 'light');
   };
 
   // Don't show navigation on auth pages
