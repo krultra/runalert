@@ -8,6 +8,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
+// Import WelcomeDialog - using correct import path
+import dynamic from 'next/dynamic';
+
+// Use dynamic import with no SSR to ensure client-side only rendering
+const WelcomeDialog = dynamic(() => import("@/app/components/WelcomeDialog"), { ssr: false });
+
 // Import icons
 import { AlertOctagon, AlertTriangle, Bell, Eye, EyeOff, Info, CheckCircle2, ChevronDown, Clock, Circle } from "lucide-react";
 
@@ -509,6 +515,8 @@ export default function ShadcnDemoPage() {
 
   return (
     <div className="container mx-auto max-w-2xl py-8">
+      {/* Add WelcomeDialog for sound notification permissions */}
+      <WelcomeDialog />
       {/* Enhanced connection status indicator with pending operations info */}
       <div className={`mb-4 py-1 px-3 rounded-md text-sm flex items-center justify-between ${isReallyConnected ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
         <div className="flex items-center">

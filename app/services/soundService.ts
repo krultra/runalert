@@ -19,6 +19,9 @@ export class SoundService {
   // Track if we've had user interaction (required for sound in many browsers)
   private hasUserInteraction = false;
   
+  // Queue for sounds that couldn't be played due to autoplay restrictions
+  private pendingNotifications: Array<{priority: string, timestamp: number}> = [];
+  
   private constructor() {
     // Private constructor for singleton pattern
   }
@@ -41,7 +44,7 @@ export class SoundService {
       
       // Create audio elements for each priority with correct file formats
       this.sounds.info = new Audio('/sounds/notification-info.ogg');
-      this.sounds.warning = new Audio('/sounds/notification-warning.ogg');
+      this.sounds.warning = new Audio('/sounds/notification-warning.wav');
       this.sounds.critical = new Audio('/sounds/notification-critical.ogg');
       this.sounds.announcement = new Audio('/sounds/notification-announcement.wav');
       
@@ -64,7 +67,7 @@ export class SoundService {
       });
       
       // Set up event listeners for user interaction
-      if (typeof document !== 'undefined') {
+      if (typeof document !== 'undefined' && typeof window !== 'undefined') {
         const interactionEvents = ['click', 'touchstart', 'keydown'];
         const handleUserInteraction = () => {
           this.hasUserInteraction = true;
@@ -76,19 +79,96 @@ export class SoundService {
           
           // Try to play a silent sound to unlock audio
           this.unlockAudio();
+          
+          // Play any pending notifications
+          this.playPendingNotifications();
         };
         
+        // Listen for standard interaction events
         interactionEvents.forEach(event => {
           document.addEventListener(event, handleUserInteraction);
+        });
+        
+        // Listen for our custom event from WelcomeDialog
+        window.addEventListener('userInteractionDetected', () => {
+          console.log('[SoundService] Received userInteractionDetected event');
+          handleUserInteraction();
         });
       }
       
       this.isInitialized = true;
       // Default to unmuted for better user experience
       this.muted = false;
+      
+      // Load any pending notifications from localStorage
+      this.loadPendingNotifications();
+      
       console.log('Sound service initialized successfully');
     } catch (error) {
       console.error('Failed to initialize sound service:', error);
+    }
+  }
+  
+  // Load pending notifications from localStorage
+  private loadPendingNotifications(): void {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const pendingNotifications = localStorage.getItem('runalert-pending-sounds');
+        if (pendingNotifications) {
+          this.pendingNotifications = JSON.parse(pendingNotifications);
+          console.log(`[SoundService] Loaded ${this.pendingNotifications.length} pending notifications`);
+        }
+      }
+    } catch (e) {
+      console.error('Error loading pending notifications:', e);
+    }
+  }
+  
+  // Save pending notifications to localStorage
+  private savePendingNotifications(): void {
+    try {
+      if (typeof localStorage !== 'undefined' && this.pendingNotifications.length > 0) {
+        localStorage.setItem('runalert-pending-sounds', JSON.stringify(this.pendingNotifications));
+      } else if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('runalert-pending-sounds');
+      }
+    } catch (e) {
+      console.error('Error saving pending notifications:', e);
+    }
+  }
+  
+  // Play pending notifications
+  public playPendingNotifications(): void {
+    if (!this.hasUserInteraction || this.pendingNotifications.length === 0) return;
+    
+    console.log(`[SoundService] Playing ${this.pendingNotifications.length} pending notifications`);
+    
+    // Sort by priority first (critical first), then by timestamp (oldest first)
+    const sortedNotifications = [...this.pendingNotifications].sort((a, b) => {
+      const priorityOrder = { critical: 0, warning: 1, announcement: 2, info: 3 };
+      const priorityA = priorityOrder[a.priority as keyof typeof priorityOrder] || 999;
+      const priorityB = priorityOrder[b.priority as keyof typeof priorityOrder] || 999;
+      
+      // First by priority
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      
+      // Then by timestamp (oldest first)
+      return a.timestamp - b.timestamp;
+    });
+    
+    // Play highest priority notification first
+    if (sortedNotifications.length > 0) {
+      const notification = sortedNotifications[0];
+      console.log(`[SoundService] Playing queued sound: ${notification.priority}`);
+      this.playSound(notification.priority as any);
+      
+      // Remove this notification from the queue
+      this.pendingNotifications = this.pendingNotifications.filter(n => 
+        n.priority !== notification.priority || n.timestamp !== notification.timestamp
+      );
+      
+      // Save updated queue
+      this.savePendingNotifications();
     }
   }
   
@@ -119,7 +199,7 @@ export class SoundService {
           src = '/sounds/notification-info.ogg';
           break;
         case 'warning':
-          src = '/sounds/notification-warning.ogg';
+          src = '/sounds/notification-warning.wav';
           break;
         case 'critical':
           src = '/sounds/notification-critical.ogg';
@@ -202,12 +282,18 @@ export class SoundService {
     if (sound) {
       try {        
         // Add event listeners for better debugging
-        sound.onplay = () => console.log(`${priority} sound started playing`);
-        sound.onended = () => console.log(`${priority} sound finished playing`);
-        sound.onerror = (e) => console.error(`${priority} sound error:`, e);
+        sound.onplay = () => {
+          console.log(`${priority} sound started playing`);
+        };
         
-        // Play immediately - using a new instance each time avoids issues with
-        // multiple sounds playing at once or sounds not playing consistently
+        sound.onended = () => {
+          console.log(`${priority} sound finished playing`);
+        };
+        
+        sound.onerror = (e) => {
+          console.error(`Error with ${priority} sound:`, e);
+        };
+        
         console.log(`Playing ${priority} sound at volume ${sound.volume}. Source: ${sound.src}`);
         
         // Force load before play for better mobile compatibility
@@ -223,12 +309,16 @@ export class SoundService {
             playPromise.then(() => {
               console.log(`${priority} sound played successfully`);
             }).catch(error => {
-              console.warn(`Could not play ${priority} sound:`, error);
-              if (!this.hasUserInteraction) {
-                console.warn('This is likely because there has been no user interaction with the page yet.');
-                console.warn('Browser autoplay policy requires user interaction before audio can play.');
-                this.tryFallbackPlayback(priority);
-              }
+              console.error(`Could not play ${priority} sound: ${error}`);
+              console.log('This is likely because there has been no user interaction with the page yet.');
+              console.log('Browser autoplay policy requires user interaction before audio can play.');
+              
+              // Queue the notification for later
+              this.queueSoundForLaterPlayback(priority);
+              
+              // Also try fallback playback
+              console.log('Attempting fallback audio playback');
+              this.tryFallbackPlayback(priority);
             });
           }
         }, 50); // Small delay to ensure sound is ready
@@ -238,6 +328,74 @@ export class SoundService {
       }
     } else {
       console.warn(`Sound for ${priority} priority could not be created`);
+    }
+  }
+  
+  // Queue sound for later playback when user interacts
+  private queueSoundForLaterPlayback(priority: 'info' | 'warning' | 'critical' | 'announcement'): void {
+    // Add to pending notifications queue
+    this.pendingNotifications.push({
+      priority,
+      timestamp: Date.now()
+    });
+    
+    // Save to localStorage
+    this.savePendingNotifications();
+    
+    console.log(`[SoundService] Queued ${priority} sound for later playback`);
+    
+    // Show visual notification
+    this.showVisualNotification(priority);
+  }
+  
+  // Show a visual notification when audio can't play
+  private showVisualNotification(priority: 'info' | 'warning' | 'critical' | 'announcement'): void {
+    if (typeof document === 'undefined') return;
+    
+    try {
+      // Create notification element
+      const notificationEl = document.createElement('div');
+      
+      // Set styles based on priority
+      let bgColor = 'bg-blue-500';
+      let icon = '🔔';
+      
+      if (priority === 'critical') {
+        bgColor = 'bg-red-500';
+        icon = '🚨';
+      } else if (priority === 'warning') {
+        bgColor = 'bg-yellow-500';
+        icon = '⚠️';
+      } else if (priority === 'announcement') {
+        bgColor = 'bg-purple-500';
+        icon = '📢';
+      }
+      
+      // Apply Tailwind classes
+      notificationEl.className = `fixed bottom-4 right-4 ${bgColor} text-white p-4 rounded-lg shadow-lg flex items-center gap-2 z-50 animate-fade-in`;
+      notificationEl.innerHTML = `
+        <div class="text-xl">${icon}</div>
+        <div>
+          <div class="font-semibold">New ${priority} notification</div>
+          <div class="text-sm">Click anywhere to enable sound</div>
+        </div>
+      `;
+      
+      // Add to document
+      document.body.appendChild(notificationEl);
+      
+      // Auto dismiss after 5 seconds
+      setTimeout(() => {
+        notificationEl.classList.add('opacity-0');
+        notificationEl.style.transition = 'opacity 0.5s';
+        setTimeout(() => {
+          if (notificationEl.parentNode) {
+            notificationEl.parentNode.removeChild(notificationEl);
+          }
+        }, 500);
+      }, 5000);
+    } catch (e) {
+      console.error('Error showing visual notification:', e);
     }
   }
   

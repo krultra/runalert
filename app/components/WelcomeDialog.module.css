@@ -1,0 +1,94 @@
+/* Modal backdrop - separate from Tailwind/Shadcn */
+.backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #000;
+  opacity: 0.85;
+  z-index: 9000;
+  pointer-events: all; /* Ensure it blocks clicks */
+}
+
+/* Modal container */
+.modalContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9001; /* Higher than the backdrop */
+  overflow: hidden;
+  pointer-events: all; /* Ensure it captures all clicks */
+}
+
+/* Modal content */
+.modalContent {
+  background-color: white;
+  border-radius: 8px;
+  border: 2px solid #3b82f6;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  padding: 2rem;
+  max-width: 28rem;
+  width: 100%;
+  margin: 1rem;
+}
+
+/* For dark mode */
+:global(.dark) .modalContent {
+  background-color: #1f2937;
+  color: white;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #111827;
+}
+
+:global(.dark) .title {
+  color: white;
+}
+
+.text {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  color: #374151;
+}
+
+:global(.dark) .text {
+  color: #d1d5db;
+}
+
+.buttonContainer {
+  display: flex;
+  justify-content: center;
+}
+
+.button {
+  background-color: #3b82f6;
+  color: white;
+  font-size: 1.125rem;
+  font-weight: 500;
+  padding: 0.5rem 1.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: background-color 0.2s;
+}
+
+.button:hover {
+  background-color: #2563eb;
+}
+
+.button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}

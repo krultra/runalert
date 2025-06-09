@@ -62,8 +62,6 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-// Navigation component is already imported above
-
 export default function RootLayout({
   children,
 }: {
