@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { signOut } from '@/lib/firebase/config';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { colors } from '@/app/styles/design-system';
 import styles from './navigation-override.module.css';
 import { SoundToggle } from './SoundToggle';
@@ -13,6 +13,8 @@ export default function Navigation() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [darkMode, setDarkMode] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   
   // Check for system preference on initial load and add listener for changes
   useEffect(() => {
@@ -41,6 +43,25 @@ export default function Navigation() {
     // Cleanup
     return () => mediaQuery.removeEventListener('change', updateDarkMode);
   }, []);
+  
+  // Add click outside listener to close menu
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    
+    // Add event listener only when menu is open
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    // Cleanup
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuOpen]);
 
   const handleSignOut = async () => {
     try {
@@ -74,30 +95,25 @@ export default function Navigation() {
 
   return (
     <header className="bg-white dark:bg-gray-900 w-full border-b border-gray-200 dark:border-gray-800 app-header" style={{ marginBottom: '16px' }}>
-      <div className="flex items-center justify-between px-4 py-3 h-16" style={{ padding: '16px' }}>
+      <div className="flex items-center justify-between px-4 py-3" style={{ padding: '16px', minHeight: '70px' }}>
         <div className="flex items-center" style={{ gap: '16px' }}>
-          <Link href="/" className="flex-shrink-0 mr-3 w-8 h-8" style={{ maxWidth: '32px', maxHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Link href="/" className="flex-shrink-0 mr-3" style={{ height: '48px', width: '96px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <img 
-              src="/icons/krultraRA-192x192.png" 
+              src="/icons/thumbnail_MMC_logo_roed.png" 
               alt="RunAlert logo" 
               style={{ 
-                width: '100%', 
-                height: '100%', 
-                maxWidth: '32px', 
-                maxHeight: '32px', 
+                height: '100%',
+                width: 'auto',
                 objectFit: 'contain'
               }} 
             />
           </Link>
-          <span className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Inter, Arial, sans-serif' }}>
+          <span className="font-bold tracking-tight" style={{ fontFamily: 'Inter, Arial, sans-serif', fontSize: '2.5rem' }}>
             <span className="text-foreground">Run</span>
             <span className="text-destructive">Alert</span>
           </span>
         </div>
         <div className="flex items-center gap-4">
-          {/* Sound Notification Toggle */}
-          <SoundToggle />
-          
           {/* Dark Mode Toggle */}
           <button 
             onClick={toggleDarkMode} 
@@ -124,13 +140,56 @@ export default function Navigation() {
           </button>
           
           {/* Menu Button */}
-          <button className="flex items-center justify-center w-10 h-10 rounded-md bg-foreground/5 hover:bg-foreground/10 dark:bg-background/10 dark:hover:bg-background/20 focus:outline-none" aria-label="Open menu">
+          <button 
+            onClick={() => setMenuOpen(!menuOpen)} 
+            className="flex items-center justify-center w-10 h-10 rounded-md bg-foreground/5 hover:bg-foreground/10 dark:bg-background/10 dark:hover:bg-background/20 focus:outline-none" 
+            aria-label="Toggle menu"
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.navIcon}>
               <line x1="4" y1="6" x2="20" y2="6" />
               <line x1="4" y1="12" x2="20" y2="12" />
               <line x1="4" y1="18" x2="20" y2="18" />
             </svg>
           </button>
+          
+          {/* Dropdown Menu */}
+          {menuOpen && (
+            <div ref={menuRef} className="absolute right-4 top-16 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+              <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Sound Settings</span>
+                  <SoundToggle />
+                </div>
+              </div>
+              <div className="py-1">
+                {user ? (
+                  <button 
+                    onClick={handleSignOut}
+                    className="flex w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <svg className="mr-2 h-4 w-4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    Sign out
+                  </button>
+                ) : (
+                  <Link 
+                    href="/login"
+                    className="flex w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <svg className="mr-2 h-4 w-4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                      <polyline points="10 17 15 12 10 7" />
+                      <line x1="15" y1="12" x2="3" y2="12" />
+                    </svg>
+                    Sign in
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
