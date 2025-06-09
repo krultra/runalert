@@ -8,9 +8,7 @@ export default function WelcomeDialog() {
   const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
-    console.log('WelcomeDialog mounted - checking if it should show');
-    
-    // For debugging, let's force reset the welcome status
+    // For development purposes, force reset the welcome status
     if (typeof localStorage !== 'undefined') {
       console.log('Resetting runalert-welcomed localStorage to ensure dialog appears');
       localStorage.removeItem('runalert-welcomed');
@@ -50,11 +48,9 @@ export default function WelcomeDialog() {
   }, []);
 
   const handleClose = () => {
-    console.log('Welcome dialog closed by user');
     // Mark as seen
     try {
       localStorage.setItem('runalert-welcomed', 'true');
-      console.log('Set localStorage runalert-welcomed to true');
     } catch (e) {
       console.error('Could not set localStorage item', e);
     }

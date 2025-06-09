@@ -3,11 +3,18 @@
 
 export class SoundService {
   private static instance: SoundService;
-  private sounds: Record<string, HTMLAudioElement | null> = {
+  private sounds: {
+    info: HTMLAudioElement | null;
+    warning: HTMLAudioElement | null;
+    critical: HTMLAudioElement | null;
+    announcement: HTMLAudioElement | null;
+    messageRead: HTMLAudioElement | null;
+  } = {
     info: null,
-    warning: null, 
+    warning: null,
     critical: null,
-    announcement: null
+    announcement: null,
+    messageRead: null
   };
   
   private isInitialized = false;
@@ -43,10 +50,20 @@ export class SoundService {
       console.log('Initializing sound service...');
       
       // Create audio elements for each priority with correct file formats
-      this.sounds.info = new Audio('/sounds/notification-info.ogg');
-      this.sounds.warning = new Audio('/sounds/notification-warning.wav');
-      this.sounds.critical = new Audio('/sounds/notification-critical.ogg');
-      this.sounds.announcement = new Audio('/sounds/notification-announcement.wav');
+      this.sounds = {
+        info: new Audio('/sounds/notification-info.ogg'),
+        warning: new Audio('/sounds/notification-warning.wav'),
+        critical: new Audio('/sounds/notification-critical.ogg'),
+        announcement: new Audio('/sounds/notification-announcement.wav'),
+        messageRead: new Audio('/sounds/message-read.wav'),
+      };
+      
+      // Set volume for each sound
+      if (this.sounds.info) this.sounds.info.volume = 0.5;
+      if (this.sounds.warning) this.sounds.warning.volume = 0.8;
+      if (this.sounds.critical) this.sounds.critical.volume = 1.0;
+      if (this.sounds.announcement) this.sounds.announcement.volume = 0.7;
+      if (this.sounds.messageRead) this.sounds.messageRead.volume = 0.3; // Lower volume for message read sound
       
       // Preload sounds
       Object.values(this.sounds).forEach(sound => {
@@ -145,7 +162,7 @@ export class SoundService {
     
     // Sort by priority first (critical first), then by timestamp (oldest first)
     const sortedNotifications = [...this.pendingNotifications].sort((a, b) => {
-      const priorityOrder = { critical: 0, warning: 1, announcement: 2, info: 3 };
+      const priorityOrder = { critical: 0, warning: 1, announcement: 2, info: 3, messageRead: 4 };
       const priorityA = priorityOrder[a.priority as keyof typeof priorityOrder] || 999;
       const priorityB = priorityOrder[b.priority as keyof typeof priorityOrder] || 999;
       
@@ -188,7 +205,7 @@ export class SoundService {
   }
   
   // Create a separate sound instance for each play to avoid conflicts
-  private createSound(priority: 'info' | 'warning' | 'critical' | 'announcement'): HTMLAudioElement | null {
+  private createSound(priority: 'info' | 'warning' | 'critical' | 'announcement' | 'messageRead'): HTMLAudioElement | null {
     if (typeof window === 'undefined') return null;
     
     try {
@@ -207,20 +224,33 @@ export class SoundService {
         case 'announcement':
           src = '/sounds/notification-announcement.wav';
           break;
+        case 'messageRead':
+          src = '/sounds/message-read.wav';
+          break;
       }
       
       // Create a new audio instance
       const sound = new Audio(src);
       
       // Set volume based on priority
-      if (priority === 'critical') {
-        sound.volume = 1.0; // Maximum volume for critical
-      } else if (priority === 'warning') {
-        sound.volume = 0.9; // High volume for warnings
-      } else if (priority === 'announcement') {
-        sound.volume = 0.95; // Very high volume for announcements
-      } else {
-        sound.volume = 0.7; // Moderate volume for info
+      switch (priority) {
+        case 'info':
+          sound.volume = 0.5;
+          break;
+        case 'warning':
+          sound.volume = 0.8;
+          break;
+        case 'critical':
+          sound.volume = 1.0;
+          break;
+        case 'announcement':
+          sound.volume = 0.7;
+          break;
+        case 'messageRead':
+          sound.volume = 0.3; // Lower volume for message read sound
+          break;
+        default:
+          sound.volume = 0.5;
       }
       
       return sound;
@@ -230,7 +260,7 @@ export class SoundService {
     }
   }
   
-  public playSound(priority: 'info' | 'warning' | 'critical' | 'announcement'): void {
+  public playSound(priority: 'info' | 'warning' | 'critical' | 'announcement' | 'messageRead'): void {
     if (typeof window === 'undefined') return;
     if (!this.isInitialized) this.initialize();
     
@@ -275,7 +305,7 @@ export class SoundService {
   }
   
   // Separated method to play with a fresh audio instance
-  private playWithNewInstance(priority: 'info' | 'warning' | 'critical' | 'announcement'): void {
+  private playWithNewInstance(priority: 'info' | 'warning' | 'critical' | 'announcement' | 'messageRead'): void {
     // Create a fresh audio instance for this play (avoids conflicts between rapid plays)
     const sound = this.createSound(priority);
     
@@ -332,7 +362,7 @@ export class SoundService {
   }
   
   // Queue sound for later playback when user interacts
-  private queueSoundForLaterPlayback(priority: 'info' | 'warning' | 'critical' | 'announcement'): void {
+  private queueSoundForLaterPlayback(priority: 'info' | 'warning' | 'critical' | 'announcement' | 'messageRead'): void {
     // Add to pending notifications queue
     this.pendingNotifications.push({
       priority,
@@ -349,7 +379,7 @@ export class SoundService {
   }
   
   // Show a visual notification when audio can't play
-  private showVisualNotification(priority: 'info' | 'warning' | 'critical' | 'announcement'): void {
+  private showVisualNotification(priority: 'info' | 'warning' | 'critical' | 'announcement' | 'messageRead'): void {
     if (typeof document === 'undefined') return;
     
     try {
@@ -369,6 +399,9 @@ export class SoundService {
       } else if (priority === 'announcement') {
         bgColor = 'bg-purple-500';
         icon = '📢';
+      } else if (priority === 'messageRead') {
+        bgColor = 'bg-green-500';
+        icon = '📨';
       }
       
       // Apply Tailwind classes
@@ -400,7 +433,7 @@ export class SoundService {
   }
   
   // Try alternative audio playback approach for mobile
-  private tryFallbackPlayback(priority: 'info' | 'warning' | 'critical' | 'announcement'): void {
+  private tryFallbackPlayback(priority: 'info' | 'warning' | 'critical' | 'announcement' | 'messageRead'): void {
     try {
       console.log('Attempting fallback audio playback');
       // Create an AudioContext (Web Audio API approach - better mobile compatibility)

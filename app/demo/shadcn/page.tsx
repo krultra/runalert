@@ -21,6 +21,7 @@ import { AlertOctagon, AlertTriangle, Bell, Eye, EyeOff, Info, CheckCircle2, Che
 import { useAuth } from "@/app/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { messageService, Message } from "@/lib/firebase/messages";
+import { soundService } from "@/app/services/soundService";
 import { 
   getFirestore, 
   collection, 
@@ -584,6 +585,9 @@ export default function ShadcnDemoPage() {
           
           // Track read status when a message is opened
           if (value && user) {
+            // Check if this is the first time reading this message
+            const isFirstTimeReading = !readMessages.has(value);
+            
             // Mark message as read in local state
             setReadMessages(prev => {
               const updated = new Set(prev);
@@ -593,6 +597,14 @@ export default function ShadcnDemoPage() {
             
             // Record read status in Firestore
             updateMessageReadStatus(value, user.uid);
+            
+            // Play the message-read sound if this is the first time reading
+            if (isFirstTimeReading) {
+              // Import dynamically to avoid SSR issues
+              import('@/app/services/soundService').then(({ soundService }) => {
+                soundService.playSound('messageRead');
+              });
+            }
           }
         }} 
         className="w-full space-y-1">
