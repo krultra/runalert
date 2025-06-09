@@ -247,17 +247,23 @@ export const messageService = {
       if (playSound && !isFirstLoad) {
         try {
           // Import sound service dynamically to avoid SSR issues
+          console.log('[MessageService] Importing sound service for new messages...');
           import('./soundService').then((soundModule) => {
             // Get the SoundService instance
-            const soundService = soundModule.SoundService.getInstance();
+            const { soundService } = soundModule;
+            
             // Find messages that weren't in the previous set
             const newMessages = messages.filter(msg => !seenMessageIds.has(msg.id));
             
+            // Log detailed information for debugging
+            console.log(`[MessageService] Found ${newMessages.length} new messages:`, 
+              newMessages.map(m => ({ id: m.id, title: m.title, priority: m.priority })));
+            console.log(`[MessageService] Document visibility: ${document.visibilityState}`);
+            console.log(`[MessageService] Browser tab focused: ${document.hasFocus() ? 'Yes' : 'No'}`);
+            console.log(`[MessageService] Device type: ${/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop'}`);
+            
             // Play sound for highest priority new message
             if (newMessages.length > 0) {
-              // Log that we have new messages for debugging
-              console.log(`Found ${newMessages.length} new messages:`, newMessages);
-              
               // Determine highest priority message (critical > announcement > warning > info)
               const priorityOrder = { 'critical': 4, 'announcement': 3, 'warning': 2, 'info': 1 };
               const highestPriorityMsg = newMessages.reduce((highest, current) => {
@@ -267,17 +273,26 @@ export const messageService = {
               }, newMessages[0]);
               
               // Log which sound we're trying to play
-              console.log(`Playing sound for priority: ${highestPriorityMsg.priority}`);
+              console.log(`[MessageService] Playing sound for highest priority: ${highestPriorityMsg.priority}`);
+              console.log(`[MessageService] Sound details:`, {
+                messageId: highestPriorityMsg.id,
+                messageTitle: highestPriorityMsg.title,
+                priority: highestPriorityMsg.priority,
+                timestamp: new Date().toISOString()
+              });
               
-              // Play the appropriate sound using the correct method name
-              soundService.playSound(highestPriorityMsg.priority);
+              // Play the appropriate sound
+              soundService.playSound(highestPriorityMsg.priority || 'info');
             }
           }).catch(err => {
-            console.error('Failed to load sound service:', err);
+            console.error('[MessageService] Failed to load sound service:', err);
           });
         } catch (error) {
-          console.error('Error playing notification sound:', error);
+          console.error('[MessageService] Error playing notification sound:', error);
         }
+      } else {
+        console.log(`[MessageService] Skipping sound playback:`, 
+          isFirstLoad ? 'First load' : 'Sound playback disabled');
       }
       
       // Update seen message IDs and refresh time

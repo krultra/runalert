@@ -154,12 +154,25 @@ export class SoundService {
     if (typeof window === 'undefined') return;
     if (!this.isInitialized) this.initialize();
     
-    console.log(`Attempting to play ${priority} sound. Muted: ${this.muted}`);
+    // Create debugging status information
+    const debugInfo = {
+      timestamp: new Date().toISOString(),
+      priority,
+      muted: this.muted,
+      alwaysPlayImportant: this.alwaysPlayImportant,
+      hasUserInteraction: this.hasUserInteraction,
+      deviceInfo: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
+      tabFocused: typeof document !== 'undefined' ? document.hasFocus() : 'unknown',
+      audioContext: typeof window !== 'undefined' && 'AudioContext' in window ? 'supported' : 'not supported'
+    };
+    
+    console.log(`[SoundService] Sound playback requested:`, debugInfo);
     
     // Skip if muted EXCEPT for important alerts (critical, warning, announcement) when alwaysPlayImportant is true
     const isImportantAlert = priority === 'critical' || priority === 'warning' || priority === 'announcement';
     if (this.muted && !(isImportantAlert && this.alwaysPlayImportant)) {
-      console.log(`Sound muted for ${priority} priority`);
+      console.log(`[SoundService] Sound muted for ${priority} priority. Override enabled: ${this.alwaysPlayImportant}`);
       return;
     }
     

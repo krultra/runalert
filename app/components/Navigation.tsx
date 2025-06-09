@@ -154,7 +154,7 @@ export default function Navigation() {
           
           {/* Dropdown Menu */}
           {menuOpen && (
-            <div ref={menuRef} className="absolute right-4 top-16 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+            <div ref={menuRef} className="fixed right-4 top-[56px] mt-1 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
               <div className="p-3 border-b border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Sound Settings</span>
