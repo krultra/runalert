@@ -198,6 +198,9 @@ export default function ShadcnDemoPage() {
         if (Array.isArray(parsed) && parsed.length > 0) {
           console.log(`Loaded ${parsed.length} pending read operations from localStorage`);
           setPendingReadOperations(parsed);
+          
+          // Log that we found pending operations
+          console.log('Found pending operations in localStorage, will process when connected');
         }
       }
       
@@ -246,6 +249,7 @@ export default function ShadcnDemoPage() {
       await getDocs(messagesQuery);
       
       // If we made it here, Firestore is accessible
+      const wasOffline = !isReallyConnected;
       console.log('Firebase connectivity check: Connected');
       setIsReallyConnected(true);
       
@@ -289,8 +293,21 @@ export default function ShadcnDemoPage() {
       setIsReallyConnected(false); // Immediately assume disconnected when browser says offline
     };
     
-    // Check connectivity initially
-    checkRealConnectivity();
+    // Check connectivity initially and process any pending operations
+    const initialCheck = async () => {
+      await checkRealConnectivity();
+      
+      // If we're connected and have pending operations, process them immediately
+      if (isReallyConnected && user && pendingReadOperations.length > 0) {
+        console.log('Initial load: Connected with pending operations - processing now');
+        // Short delay to ensure everything is initialized
+        setTimeout(() => {
+          processPendingOperations();
+        }, 2000);
+      }
+    };
+    
+    initialCheck();
     
     // Add event listeners for online/offline detection
     window.addEventListener('online', handleOnline);
@@ -353,6 +370,25 @@ export default function ShadcnDemoPage() {
     };
   }, [user]);
 
+  // Process pending operations whenever we become connected or when pending operations change
+  useEffect(() => {
+    // If we're connected and have pending operations, process them
+    if (isReallyConnected && user && pendingReadOperations.length > 0 && !isSyncing) {
+      console.log('Connected with pending operations - processing now');
+      // Add a small delay to ensure Firebase connection is fully established
+      const timer = setTimeout(() => {
+        // Double check conditions before processing
+        if (isReallyConnected && user && pendingReadOperations.length > 0 && !isSyncing) {
+          processPendingOperations();
+        } else {
+          console.log('Conditions changed, skipping automatic sync');
+        }
+      }, 1500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isReallyConnected, user, pendingReadOperations.length, isSyncing]);
+
   // Load read message status from Firestore and localStorage
   useEffect(() => {
     const loadReadMessageStatus = async () => {
@@ -407,7 +443,22 @@ export default function ShadcnDemoPage() {
 
   // Process any pending read operations that were queued during offline mode
   const processPendingOperations = async () => {
-    if (!isReallyConnected || !user) return;
+    console.log('processPendingOperations called with:', { 
+      isReallyConnected, 
+      user: !!user, 
+      pendingOps: pendingReadOperations.length,
+      isSyncing
+    });
+    if (!isReallyConnected || !user) {
+      console.log('Cannot process operations: not connected or no user');
+      return;
+    }
+    
+    // Don't start if already syncing
+    if (isSyncing) {
+      console.log('Already syncing, skipping duplicate sync request');
+      return;
+    }
     
     // Set syncing state to true when we start processing
     setIsSyncing(true);
@@ -661,7 +712,16 @@ export default function ShadcnDemoPage() {
             </span>
           )}
           {isReallyConnected && !isSyncing && pendingReadOperations.length > 0 && (
-            <span className="text-xs">Waiting to sync...</span>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs">Waiting to sync...</span>
+              <button 
+                onClick={() => processPendingOperations()} 
+                className="text-xs bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-sm"
+                disabled={!isReallyConnected || isSyncing}
+              >
+                Sync now
+              </button>
+            </div>
           )}
           {isReallyConnected && !isSyncing && pendingReadOperations.length === 0 && (
             <span className="text-xs">All changes synced</span>
