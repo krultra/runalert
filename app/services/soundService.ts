@@ -19,12 +19,22 @@ export class SoundService {
   
   private isInitialized = false;
   private muted = false;
+  private deviceMuted = false; // Track if device is likely muted
   
   // Important messages (critical & warning) will still play sound regardless of mute setting
   private alwaysPlayImportant = true;
   
   // Define which message types should vibrate on mobile
   private vibrateOnMobile = {
+    info: false,
+    warning: true,
+    critical: true,
+    announcement: false,
+    messageRead: false
+  };
+  
+  // Define which message types should override device mute
+  private overrideDeviceMute = {
     info: false,
     warning: true,
     critical: true,
@@ -57,6 +67,9 @@ export class SoundService {
     
     try {
       console.log('Initializing sound service...');
+      
+      // Try to detect if device is muted
+      this.checkDeviceMuteState();
       
       // Create audio elements for each priority with correct file formats
       this.sounds = {
@@ -269,15 +282,80 @@ export class SoundService {
     }
   }
   
+  // Check if device is likely muted (best effort)
+  private checkDeviceMuteState(): void {
+    try {
+      if (typeof window === 'undefined') return;
+      
+      // Use the Web Audio API to detect if audio is likely muted
+      if ('AudioContext' in window) {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const audioContext = new AudioContext();
+        
+        // Check if the audio context is suspended (might indicate device is muted)
+        if (audioContext.state === 'suspended') {
+          console.log('[SoundService] AudioContext suspended, device might be muted');
+          this.deviceMuted = true;
+        } else {
+          console.log('[SoundService] AudioContext state:', audioContext.state);
+          this.deviceMuted = false;
+        }
+      }
+      
+      // Also check if we're on iOS (which often has silent mode enabled)
+      if (typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        console.log('[SoundService] iOS device detected, checking for silent mode');
+        // Unfortunately there's no direct API to check silent mode on iOS
+        // We'll use a heuristic approach by trying to play a silent sound
+        this.testSilentMode();
+      }
+    } catch (e) {
+      console.warn('[SoundService] Error checking device mute state:', e);
+    }
+  }
+  
+  // Test if device is in silent mode (iOS specific)
+  private testSilentMode(): void {
+    try {
+      const silentSound = new Audio();
+      silentSound.volume = 0.01; // Nearly silent
+      
+      // Set up event listeners
+      silentSound.onplay = () => {
+        console.log('[SoundService] Silent test sound started playing');
+      };
+      
+      silentSound.onerror = () => {
+        console.log('[SoundService] Silent test sound failed to play, device might be muted');
+        this.deviceMuted = true;
+      };
+      
+      // Try to play the silent sound
+      const playPromise = silentSound.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.log('[SoundService] Silent test sound failed:', error);
+          this.deviceMuted = true;
+        });
+      }
+    } catch (e) {
+      console.warn('[SoundService] Error testing silent mode:', e);
+    }
+  }
+  
   public playSound(priority: 'info' | 'warning' | 'critical' | 'announcement' | 'messageRead'): void {
     if (typeof window === 'undefined') return;
     if (!this.isInitialized) this.initialize();
+    
+    // Check device mute state before playing
+    this.checkDeviceMuteState();
     
     // Create debugging status information
     const debugInfo = {
       timestamp: new Date().toISOString(),
       priority,
       muted: this.muted,
+      deviceMuted: this.deviceMuted,
       alwaysPlayImportant: this.alwaysPlayImportant,
       hasUserInteraction: this.hasUserInteraction,
       deviceInfo: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
@@ -289,14 +367,20 @@ export class SoundService {
     console.log(`[SoundService] Sound playback requested:`, debugInfo);
     
     // Check if this message type should override mute settings
-    // ONLY warning and critical messages should override mute
+    // ONLY warning and critical messages should override app mute
     const isImportantAlert = priority === 'critical' || priority === 'warning';
     
+    // Check if this message type should override device mute
+    const shouldOverrideDeviceMute = this.overrideDeviceMute[priority];
+    
     // Skip sound playback if:
-    // 1. Sound is muted AND
-    // 2. Either it's not an important alert OR alwaysPlayImportant is false
-    if (this.muted && !(isImportantAlert && this.alwaysPlayImportant)) {
-      console.log(`[SoundService] Sound muted for ${priority} priority. Not playing sound.`);
+    // 1. App sound is muted AND either it's not important OR alwaysPlayImportant is false
+    // OR
+    // 2. Device is muted AND this message type shouldn't override device mute
+    if ((this.muted && !(isImportantAlert && this.alwaysPlayImportant)) || 
+        (this.deviceMuted && !shouldOverrideDeviceMute)) {
+      
+      console.log(`[SoundService] Sound muted for ${priority} priority. App muted: ${this.muted}, Device muted: ${this.deviceMuted}`);
       
       // For mobile devices, we might still want to vibrate for important alerts even when muted
       if (isImportantAlert && 
