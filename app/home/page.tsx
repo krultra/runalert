@@ -796,7 +796,7 @@ function HomePageContent() {
             key={option.id}
             variant={option.active ? "default" : "outline"}
             size="sm"
-            className={`relative ${option.active ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1' : 'bg-background hover:bg-muted'}`}
+            className={`relative ${option.active ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1 ring-offset-background' : 'bg-background hover:bg-muted text-foreground border-border'}`}
             title={option.tooltip}
             onClick={() => toggleFilter(option.id)}
           >
