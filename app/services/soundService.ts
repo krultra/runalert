@@ -107,6 +107,49 @@ export class SoundService {
     }
   }
   
+  // Create a separate sound instance for each play to avoid conflicts
+  private createSound(priority: 'info' | 'warning' | 'critical' | 'announcement'): HTMLAudioElement | null {
+    if (typeof window === 'undefined') return null;
+    
+    try {
+      // Get the appropriate source file based on priority
+      let src = '';
+      switch (priority) {
+        case 'info':
+          src = '/sounds/notification-info.ogg';
+          break;
+        case 'warning':
+          src = '/sounds/notification-warning.ogg';
+          break;
+        case 'critical':
+          src = '/sounds/notification-critical.ogg';
+          break;
+        case 'announcement':
+          src = '/sounds/notification-announcement.wav';
+          break;
+      }
+      
+      // Create a new audio instance
+      const sound = new Audio(src);
+      
+      // Set volume based on priority
+      if (priority === 'critical') {
+        sound.volume = 1.0; // Maximum volume for critical
+      } else if (priority === 'warning') {
+        sound.volume = 0.9; // High volume for warnings
+      } else if (priority === 'announcement') {
+        sound.volume = 0.95; // Very high volume for announcements
+      } else {
+        sound.volume = 0.7; // Moderate volume for info
+      }
+      
+      return sound;
+    } catch (error) {
+      console.error(`Error creating sound for ${priority}:`, error);
+      return null;
+    }
+  }
+  
   public playSound(priority: 'info' | 'warning' | 'critical' | 'announcement'): void {
     if (typeof window === 'undefined') return;
     if (!this.isInitialized) this.initialize();
@@ -120,30 +163,13 @@ export class SoundService {
       return;
     }
     
-    const sound = this.sounds[priority];
+    // Create a fresh audio instance for this play (avoids conflicts between rapid plays)
+    const sound = this.createSound(priority);
+    
     if (sound) {
       try {
-        // Check if sound is loaded
-        if (sound.readyState < 2) {
-          console.warn(`Sound for ${priority} not fully loaded yet. Loading...`);
-          sound.load();
-        }
-        
-        // Stop and reset the sound before playing again
-        sound.pause();
-        sound.currentTime = 0;
-        
-        // Set volume based on priority
-        if (priority === 'critical') {
-          sound.volume = 1.0; // Maximum volume for critical
-        } else if (priority === 'warning') {
-          sound.volume = 0.9; // High volume for warnings
-        } else if (priority === 'announcement') {
-          sound.volume = 0.95; // Very high volume for announcements
-        } else {
-          sound.volume = 0.7; // Moderate volume for info
-        }
-        
+        // Play immediately - using a new instance each time avoids issues with
+        // multiple sounds playing at once or sounds not playing consistently
         console.log(`Playing ${priority} sound at volume ${sound.volume}. Source: ${sound.src}`);
         
         // Play the appropriate sound for the priority
@@ -165,7 +191,7 @@ export class SoundService {
         console.error(`Error playing ${priority} sound:`, error);
       }
     } else {
-      console.warn(`Sound for ${priority} priority not found`);
+      console.warn(`Sound for ${priority} priority could not be created`);
     }
   }
   

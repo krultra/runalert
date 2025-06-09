@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '@/app/components/auth/ProtectedRoute';
 import { auth } from '@/lib/firebase/config';
 import { SoundTest } from '@/app/components/SoundTest';
+import { TestMessageGenerator } from '@/app/components/TestMessageGenerator';
 
 function DashboardContent() {
   const { user } = useAuth();
@@ -65,6 +66,9 @@ function DashboardContent() {
                 <p className="text-center text-gray-500 mb-8">
                   Welcome to your dashboard!
                 </p>
+                
+                {/* Test Message Generator Component */}
+                <TestMessageGenerator />
                 
                 {/* Sound Test Component */}
                 <SoundTest />

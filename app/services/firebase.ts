@@ -1,25 +1,26 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
 import { 
   getFirestore, 
   collection, 
   query, 
   orderBy, 
+  onSnapshot, 
+  doc, 
+  Timestamp, 
+  Firestore, 
   where, 
   getDocs, 
-  onSnapshot,
+  addDoc,
+  updateDoc,
   limit,
-  Timestamp,
-  Firestore,
-  doc,
   DocumentData,
-  enableMultiTabIndexedDbPersistence,
-  enableIndexedDbPersistence,
-  CACHE_SIZE_UNLIMITED,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentSingleTabManager
+  enableIndexedDbPersistence, 
+  CACHE_SIZE_UNLIMITED, 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentSingleTabManager 
 } from 'firebase/firestore';
-import { getAuth, Auth, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
 
 // Define message data structure
 export interface Message {
@@ -130,6 +131,29 @@ export const messageService = {
     );
     const snapshot = await getDocs(q);
     return snapshot.docs.map(convertToMessage);
+  },
+
+  // Add a new message to the database (useful for testing)
+  async addMessage(message: { title: string; content: string; priority: string; createdAt: Date }): Promise<string> {
+    if (!db) throw new Error('Firestore is not initialized');
+    
+    try {
+      // Create a new message document
+      const messagesRef = collection(db, 'ra_messages');
+      const docRef = await addDoc(messagesRef, {
+        title: message.title,
+        content: message.content,
+        priority: message.priority,
+        createdAt: Timestamp.fromDate(message.createdAt),
+        dismissed: false
+      });
+      
+      console.log('New test message created with ID:', docRef.id);
+      return docRef.id;
+    } catch (error) {
+      console.error('Error adding message:', error);
+      throw error;
+    }
   },
 
   // Get messages with filters
