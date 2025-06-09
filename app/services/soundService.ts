@@ -23,6 +23,15 @@ export class SoundService {
   // Important messages (critical & warning) will still play sound regardless of mute setting
   private alwaysPlayImportant = true;
   
+  // Define which message types should vibrate on mobile
+  private vibrateOnMobile = {
+    info: false,
+    warning: true,
+    critical: true,
+    announcement: false,
+    messageRead: false
+  };
+  
   // Track if we've had user interaction (required for sound in many browsers)
   private hasUserInteraction = false;
   
@@ -279,8 +288,8 @@ export class SoundService {
     
     console.log(`[SoundService] Sound playback requested:`, debugInfo);
     
-    // Skip if muted EXCEPT for important alerts (critical, warning, announcement) when alwaysPlayImportant is true
-    const isImportantAlert = priority === 'critical' || priority === 'warning' || priority === 'announcement';
+    // Skip if muted EXCEPT for important alerts (critical & warning) when alwaysPlayImportant is true
+    const isImportantAlert = priority === 'critical' || priority === 'warning';
     if (this.muted && !(isImportantAlert && this.alwaysPlayImportant)) {
       console.log(`[SoundService] Sound muted for ${priority} priority. Override enabled: ${this.alwaysPlayImportant}`);
       return;
@@ -292,14 +301,23 @@ export class SoundService {
     // On mobile, also try to trigger a user gesture event to help with autoplay restrictions
     if (typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
       console.log('Mobile device detected, using secondary playback method');
-      // Trigger vibration on supporting devices (provides feedback even when sound fails)
-      if ('vibrate' in navigator) {
+      
+      // Only vibrate for specific message types based on configuration
+      if (this.vibrateOnMobile[priority] && 'vibrate' in navigator) {
         try {
-          navigator.vibrate(200); // 200ms vibration
-          console.log('Vibration triggered');
+          // Use different vibration patterns based on priority
+          if (priority === 'critical') {
+            navigator.vibrate([200, 100, 200]); // Double vibration for critical
+            console.log('Critical vibration pattern triggered');
+          } else if (priority === 'warning') {
+            navigator.vibrate(200); // Standard vibration for warning
+            console.log('Warning vibration triggered');
+          }
         } catch (e) {
           console.warn('Vibration failed:', e);
         }
+      } else {
+        console.log(`Vibration skipped for ${priority} message type`);
       }
     }
   }
