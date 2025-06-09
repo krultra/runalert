@@ -167,8 +167,9 @@ export class SoundService {
       }
       
       this.isInitialized = true;
-      // Default to unmuted for better user experience
-      this.muted = false;
+      
+      // Load mute state from localStorage
+      this.loadMuteState();
       
       // Load any pending notifications from localStorage
       this.loadPendingNotifications();
