@@ -8,6 +8,11 @@
   "theme_color": "#000000",
   "orientation": "portrait",
   "categories": ["sports", "fitness", "running"],
+  "permissions": ["notifications", "background"],
+  "background": {
+    "scripts": ["sw.js"],
+    "persistent": true
+  },
   "icons": [
     {
       "src": "/icons/icon-16x16.png",

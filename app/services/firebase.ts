@@ -222,11 +222,6 @@ export const messageService = {
     try {
       // Try to load previously seen messages from localStorage
       const storedIds = localStorage.getItem('runalert-seen-message-ids');
-      
-      // For debugging - let's clear the localStorage to ensure proper detection
-      // Remove this line in production if needed
-      localStorage.removeItem('runalert-seen-message-ids');
-      
       seenMessageIds = storedIds ? new Set<string>(JSON.parse(storedIds)) : new Set<string>();
       console.log(`[MessageService] Loaded ${seenMessageIds.size} previously seen message IDs from storage`);
     } catch (error) {
@@ -253,7 +248,7 @@ export const messageService = {
       try {
         if (!db) return;
         
-        console.log('Manually checking for message updates');
+        console.log('[MessageService] Manually checking for message updates');
         const messagesRef = collection(db, 'ra_messages');
         const q = query(messagesRef, orderBy('createdAt', 'desc'));
         const snapshot = await getDocs(q);
@@ -262,12 +257,11 @@ export const messageService = {
         // Process new messages
         const newMessages = messages.filter(msg => !seenMessageIds.has(msg.id));
         if (newMessages.length > 0) {
-          console.log('Manual check found new messages:', newMessages.length);
+          console.log('[MessageService] Manual check found new messages:', newMessages.length);
           onMessage(messages);
-          seenMessageIds = new Set(messages.map(msg => msg.id));
         }
       } catch (error) {
-        console.error('Error in manual message check:', error);
+        console.error('[MessageService] Error in manual message check:', error);
       }
     };
     
@@ -277,7 +271,7 @@ export const messageService = {
         const timeSinceLastRefresh = Date.now() - lastRefreshTime;
         // If it's been more than 30 seconds since last refresh when coming back to the app
         if (timeSinceLastRefresh > 30000) {
-          console.log('App became visible after inactivity, checking for updates');
+          console.log('[MessageService] App became visible after inactivity, checking for updates');
           checkForUpdates();
           lastRefreshTime = Date.now();
         }
@@ -286,6 +280,17 @@ export const messageService = {
     
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', visibilityHandler);
+      
+      // Listen for messages from service worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data && event.data.type === 'CHECK_MESSAGES') {
+            console.log('[MessageService] Received message check request from service worker');
+            checkForUpdates();
+            lastRefreshTime = Date.now();
+          }
+        });
+      }
     }
     
     // Setup regular snapshot listener
@@ -440,6 +445,24 @@ export const messageService = {
       
       isFirstLoad = false;
       lastRefreshTime = Date.now();
+      
+      // Register for background sync if supported
+      if ('serviceWorker' in navigator && 'SyncManager' in window) {
+        navigator.serviceWorker.ready
+          .then(registration => {
+            // Register for background sync
+            return registration.sync.register('process-messages')
+              .then(() => {
+                console.log('[MessageService] Background sync registered');
+              })
+              .catch((error: Error) => {
+                console.error('[MessageService] Background sync registration failed:', error);
+              });
+          })
+          .catch((error: Error) => {
+            console.error('[MessageService] Service worker not ready:', error);
+          });
+      }
     });
     
     // Return an enhanced unsubscribe function that also removes visibility listener

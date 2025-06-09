@@ -6,6 +6,7 @@ import Providers from './providers';
 import NodePolyfills from './client-entry';
 import Navigation from './components/Navigation';
 import { MessageSubscriber } from './components/MessageSubscriber';
+import PWARegister from './pwa-register';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -102,6 +103,7 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-full`}>
         <NodePolyfills />
+        <PWARegister />
         <Providers>
           {/* This component handles message subscription and sound notifications */}
           <MessageSubscriber />
@@ -112,7 +114,7 @@ export default function RootLayout({
             </main>
           </div>
         </Providers>
-        {/* Service worker registration is now handled automatically by next-pwa */}
+        {/* Service worker registration is handled by PWARegister component */}
       </body>
     </html>
   );

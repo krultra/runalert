@@ -53,6 +53,12 @@ export function MessageSubscriber() {
               soundService.playSound('info');
               console.log('[DEBUG] Sound test triggered');
             });
+          },
+          checkMessages: () => {
+            console.log('[DEBUG] Manually checking for new messages...');
+            messageService.getMessages().then(messages => {
+              console.log(`[DEBUG] Found ${messages.length} messages`);
+            });
           }
         };
         
@@ -64,12 +70,72 @@ export function MessageSubscriber() {
             window.__runalert_debug.messageCount = e.detail.count;
           }
         });
+        
+        // Listen for service worker messages
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          console.log('[MessageSubscriber] Setting up service worker message listener');
+          
+          navigator.serviceWorker.addEventListener('message', (event) => {
+            console.log('[MessageSubscriber] Received message from service worker:', event.data);
+            
+            if (event.data && event.data.type === 'CHECK_MESSAGES') {
+              console.log('[MessageSubscriber] Service worker requested message check');
+              
+              // Force a refresh of messages
+              messageService.getMessages().then(messages => {
+                console.log(`[MessageSubscriber] Background check found ${messages.length} messages`);
+                
+                // Trigger the same handling as a regular update
+                setMessageCount(messages.length);
+                
+                // Add DOM event for debugging message arrivals
+                const event = new CustomEvent('messagesUpdated', { 
+                  detail: { 
+                    count: messages.length, 
+                    timestamp: new Date(),
+                    source: 'service-worker'
+                  } 
+                });
+                window.dispatchEvent(event);
+                
+                // Check for new messages that need sound notifications
+                import('@/app/services/soundService').then(({ soundService }) => {
+                  // Play sound for highest priority message if not muted
+                  if (!soundService.isMuted()) {
+                    const priorities = ['critical', 'warning', 'announcement', 'info'] as const;
+                    for (const priority of priorities) {
+                      const matchingMsg = messages.find(m => m.priority === priority as any);
+                      if (matchingMsg) {
+                        console.log(`[MessageSubscriber] Playing sound for ${priority} message from background check`);
+                        soundService.playSound(priority as 'info' | 'warning' | 'critical' | 'announcement');
+                        break;
+                      }
+                    }
+                  }
+                });
+              });
+            }
+          });
+        }
+      }
+      
+      // Request notification permission if not already granted
+      if ('Notification' in window) {
+        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+          Notification.requestPermission().then(permission => {
+            console.log(`[MessageSubscriber] Notification permission: ${permission}`);
+          });
+        }
       }
       
       return () => {
         console.log('[MessageSubscriber] Component unmounting, cleaning up...');
         unsubscribe();
-        // No need to remove visibilityHandler as we're not setting it up in this component
+        
+        // Remove service worker message listener if it exists
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.removeEventListener('message', () => {});
+        }
       };
     } catch (error) {
       console.error('[MessageSubscriber] Error setting up message subscription:', error);
@@ -86,6 +152,7 @@ declare global {
       lastMessageUpdate: Date | null;
       messageCount: number;
       checkSound: () => void;
+      checkMessages: () => void;
     };
   }
 }

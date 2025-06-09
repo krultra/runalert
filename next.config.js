@@ -9,6 +9,33 @@ const withPWA = require('next-pwa')({
   publicExcludes: [
     '!noprecache/**/*'
   ],
+  // Use our custom service worker instead of the generated one
+  swSrc: 'public/sw.js',
+  // Important for background processing
+  runtimeCaching: [
+    {
+      urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'firestore-api-cache',
+        expiration: {
+          maxEntries: 64,
+          maxAgeSeconds: 60 * 5, // 5 minutes
+        },
+      },
+    },
+    {
+      urlPattern: /\.(?:mp3|wav|ogg)$/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'sound-cache',
+        expiration: {
+          maxEntries: 10,
+          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+        },
+      },
+    },
+  ],
 });
 
 /** @type {import('next').NextConfig} */
