@@ -44,32 +44,32 @@ export function SoundToggle() {
   };
   
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-2 pr-2 justify-end">
       {/* Important alerts toggle - shows different icons based on state */}
       <button 
         onClick={toggleImportantAlerts}
-        className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
         aria-label={alwaysPlayImportant ? "Disable important alert override" : "Enable important alert override"}
         title={alwaysPlayImportant ? "Critical & warning alerts will play even when muted" : "All alerts follow mute settings"}
       >
         {alwaysPlayImportant ? (
-          <AlertCircle className="w-4 h-4 text-red-500" />
+          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
         ) : (
-          <AlertCircle className="w-4 h-4 text-gray-500" />
+          <AlertCircle className="w-3.5 h-3.5 text-gray-500" />
         )}
       </button>
       
       {/* Regular sound toggle */}
       <button 
         onClick={toggleSound}
-        className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
         aria-label={muted ? "Enable notification sounds" : "Disable notification sounds"}
         title={muted ? "Enable notification sounds" : "Disable notification sounds"}
       >
         {muted ? (
-          <VolumeX className="w-4 h-4 text-gray-500" />
+          <VolumeX className="w-3.5 h-3.5 text-gray-500" />
         ) : (
-          <Volume2 className="w-4 h-4 text-blue-500" />
+          <Volume2 className="w-3.5 h-3.5 text-blue-500" />
         )}
       </button>
     </div>

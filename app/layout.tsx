@@ -5,6 +5,7 @@ import Script from 'next/script';
 import Providers from './providers';
 import NodePolyfills from './client-entry';
 import Navigation from './components/Navigation';
+import { MessageSubscriber } from './components/MessageSubscriber';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -104,6 +105,8 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-full`}>
         <NodePolyfills />
         <Providers>
+          {/* This component handles message subscription and sound notifications */}
+          <MessageSubscriber />
           <div className="min-h-full">
             <Navigation />
             <main className="py-10">

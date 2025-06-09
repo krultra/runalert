@@ -191,10 +191,31 @@ export const messageService = {
     
     console.log('Setting up message subscription with enhanced PWA support');
     
-    // Keep track of seen message IDs to detect new ones
-    let seenMessageIds = new Set<string>();
+    // Initialize seen message IDs using localStorage to persist across refreshes
+    let seenMessageIds: Set<string>;
+    try {
+      // Try to load previously seen messages from localStorage
+      const storedIds = localStorage.getItem('runalert-seen-message-ids');
+      seenMessageIds = storedIds ? new Set<string>(JSON.parse(storedIds)) : new Set<string>();
+      console.log(`[MessageService] Loaded ${seenMessageIds.size} previously seen message IDs from storage`);
+    } catch (error) {
+      console.error('[MessageService] Error loading seen message IDs:', error);
+      seenMessageIds = new Set<string>();
+    }
+    
+    // Also track messages seen in this session separately
+    let sessionMessageIds = new Set<string>();
     let isFirstLoad = true;
     let lastRefreshTime = Date.now();
+    
+    // Helper to save seen IDs to localStorage
+    const saveSeenIds = (ids: Set<string>) => {
+      try {
+        localStorage.setItem('runalert-seen-message-ids', JSON.stringify([...ids]));
+      } catch (error) {
+        console.error('[MessageService] Error saving seen message IDs:', error);
+      }
+    };
     
     // Function to manually check for updates (used for PWA background recovery)
     const checkForUpdates = async () => {
@@ -252,8 +273,47 @@ export const messageService = {
             // Get the SoundService instance
             const { soundService } = soundModule;
             
-            // Find messages that weren't in the previous set
-            const newMessages = messages.filter(msg => !seenMessageIds.has(msg.id));
+            // A message is considered new if:
+            // 1. It's not in our long-term seen messages set OR
+            // 2. It was received in the last 30 seconds (for tab switches/refreshes)
+            const now = Date.now();
+            const newMessages = messages.filter(msg => {
+              // Check if it's genuinely a new message (never seen before)
+              if (!seenMessageIds.has(msg.id)) {
+                return true;
+              }
+              
+              // Check for recent messages (timestamp within last 30 seconds)
+              // This helps with detecting new messages even after page refresh
+              if (msg.createdAt) {
+                // Handle different timestamp formats
+                let msgTimestamp: number | undefined;
+                
+                // Handle Firestore Timestamp object
+                const createdAt = msg.createdAt as any;
+                
+                if (createdAt && typeof createdAt === 'object') {
+                  // Firestore Timestamp with seconds field
+                  if (createdAt.seconds && typeof createdAt.seconds === 'number') {
+                    msgTimestamp = createdAt.seconds * 1000;
+                  }
+                  // Standard Date object
+                  else if (createdAt instanceof Date) {
+                    msgTimestamp = createdAt.getTime();
+                  }
+                }
+                
+                if (msgTimestamp) {
+                  const isRecent = (now - msgTimestamp) < 30000; // 30 seconds
+                  return isRecent && !sessionMessageIds.has(msg.id);
+                }
+              }
+              
+              return false;
+            });
+            
+            // Add these to our session tracking
+            newMessages.forEach(msg => sessionMessageIds.add(msg.id));
             
             // Log detailed information for debugging
             console.log(`[MessageService] Found ${newMessages.length} new messages:`, 
@@ -296,7 +356,19 @@ export const messageService = {
       }
       
       // Update seen message IDs and refresh time
-      seenMessageIds = new Set(messages.map(msg => msg.id));
+      const messageIds = messages.map(msg => msg.id);
+      
+      // Update both tracking sets
+      messageIds.forEach(id => {
+        seenMessageIds.add(id);
+        sessionMessageIds.add(id);
+      });
+      
+      // Save to localStorage periodically (not on every update to reduce overhead)
+      if (Math.random() < 0.2) { // ~20% chance to save on each update
+        saveSeenIds(seenMessageIds);
+      }
+      
       isFirstLoad = false;
       lastRefreshTime = Date.now();
     });
